@@ -22,7 +22,7 @@ const CalendarEvent = z.object({
 app.use(express.json());
 
 // Incoming webhook endpoint
-app.post("/extract-declared-data", async (req, res) => {
+app.post("/api/extract-declared-data", async (req, res) => {
   try {
     const { message } = req.body; // assume incoming JS==ON has { "message": "..." }
     console.log("📩 Incoming:", message);
