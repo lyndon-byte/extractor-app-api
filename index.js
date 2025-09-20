@@ -27,6 +27,10 @@ app.post("/extract-declared-data", async (req, res) => {
     const { message } = req.body; // assume incoming JS==ON has { "message": "..." }
     console.log("📩 Incoming:", message);
 
+    res.status(200).json({
+      status: "accepted",
+    });
+
     // Call OpenAI to parse the event
     const completion = await openai.chat.completions.parse({
       model: "gpt-4o-2024-08-06",
@@ -41,7 +45,7 @@ app.post("/extract-declared-data", async (req, res) => {
     console.log("✅ Parsed event:", event);
 
     // Forward to another webhook URL
-    const webhookUrl = "https://example.com/webhook"; // change this
+    const webhookUrl = " https://0579c467ff95.ngrok-free.app/test-webhook"; // change this
     await axios.post(webhookUrl, event);
 
     // Respond to sender
