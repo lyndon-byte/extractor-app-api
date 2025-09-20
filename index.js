@@ -45,7 +45,7 @@ app.post("/extract-declared-data", async (req, res) => {
     console.log("✅ Parsed event:", event);
 
     // Forward to another webhook URL
-    const webhookUrl = " https://0579c467ff95.ngrok-free.app/test-webhook"; // change this
+    const webhookUrl = "https://0579c467ff95.ngrok-free.app/test-webhook"; // change this
     await axios.post(webhookUrl, event);
 
     // Respond to sender
