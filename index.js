@@ -31,27 +31,32 @@ app.post("/api/extract-declared-data", async (req, res) => {
       status: "accepted",
     });
 
-    // Call OpenAI to parse the event
-    const completion = await openai.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
-      messages: [
-        { role: "system", content: "Extract the event information." },
-        { role: "user", content: message },
-      ],
-      response_format: zodResponseFormat(CalendarEvent, "event"),
+    const completion = await openai.responses.create({
+        model: "gpt-5",
+        input: message
     });
+    // Call OpenAI to parse the event
+    // const completion = await openai.chat.completions.parse({
+    //   model: "gpt-4o-2024-08-06",
+    //   messages: [
+    //     { role: "system", content: "Extract the event information." },
+    //     { role: "user", content: message },
+    //   ],
+    //   response_format: zodResponseFormat(CalendarEvent, "event"),
+    // });
 
-    const event = completion.choices[0].message.parsed;
-    console.log("✅ Parsed event:", event);
+    // const event = completion.choices[0].message.parsed;
+
+    const response = completion.output_text;
 
     // Forward to another webhook URL
     const webhookUrl = "https://7e77de832cbe.ngrok-free.app/test-webhook"; // change this
-    await axios.post(webhookUrl, event);
+    await axios.post(webhookUrl, response);
 
     // Respond to sender
     res.status(200).json({
       message: "Event received, parsed, and forwarded",
-      event,
+      response,
     });
   } catch (error) {
     console.error("❌ Error:", error.message);
