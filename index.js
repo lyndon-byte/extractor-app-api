@@ -15,14 +15,34 @@ const webhookUrl =  process.env.WEBHOOK_URL;
 
 app.use(bodyParser.json());
 
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Schema for events
-const CalendarEvent = z.object({
+
+const Resume = z.object({
   name: z.string(),
-  date: z.string(),
-  participants: z.array(z.string()),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  summary: z.string().optional(),
+  skills: z.array(z.string()),
+  experience: z.array(
+    z.object({
+      company: z.string(),
+      role: z.string(),
+      startDate: z.string(),
+      endDate: z.string().optional(),
+      description: z.string().optional(),
+    })
+  ),
+  education: z.array(
+    z.object({
+      school: z.string(),
+      degree: z.string(),
+      fieldOfStudy: z.string().optional(),
+      startDate: z.string(),
+      endDate: z.string().optional(),
+    })
+  ),
 });
 
 
@@ -44,14 +64,14 @@ function verifySignature(req, res, next) {
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { message } = req.body;
+    const files = req.body; 
 
     const ackData = {
       status: "accepted",
       note: "Processing with OpenAI, result will be sent to webhook",
       timestamp: Date.now(),
     };
-  
+
     const ackSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
       .update(JSON.stringify(ackData))
@@ -60,35 +80,67 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    try {
-      
-      const completion = await openai.responses.create({
-        model: "gpt-5",
-        input: message,
-      });
-  
-      const responseText = completion.output_text;
-  
+    for (const file of files) {
+
+      async function getData() {
+
+        if (file.fileType === "image") {
+          const completion = await openai.chat.completions.parse({
+            model: "gpt-4o-2024-08-06",
+            messages: [
+              { role: "system", content: "Extract information on the image using the given schema" },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "Please extract information from the image." },
+                  {
+                    type: "image_url",
+                    image_url: { url: file.fileContent },
+                  },
+                ],
+              },
+            ],
+            response_format: zodResponseFormat(Resume, "data"),
+          });
+    
+          return completion.choices[0].message.parsed;
+        } else {
+          try {
+            const completion = await openai.chat.completions.parse({
+              model: "gpt-4o-2024-08-06",
+              messages: [
+                { role: "system", content: "Extract the information." },
+                { role: "user", content: file.fileContent },
+              ],
+              response_format: zodResponseFormat(Resume, "data"),
+            });
+    
+            return completion.choices[0].message.parsed;
+          } catch (err) {
+            console.error("❌ OpenAI or webhook error:", err);
+            return null;
+          }
+        }
+      }
+    
+      const parsedData = await getData(); // ✅ Wait for result
+    
       const responseData = {
+        sessionId: file.sessionId,
         status: "completed",
         from: "express",
-        original: message,
-        response: responseText,
+        response: parsedData,
         timestamp: Date.now(),
       };
-  
+    
       const responseSignature = crypto
         .createHmac("sha256", process.env.SHARED_SECRET)
         .update(JSON.stringify(responseData))
         .digest("hex");
-  
+    
       await axios.post(webhookUrl, responseData, {
         headers: { "X-Signature": responseSignature },
       });
-  
-      console.log("✅ Completion sent to Laravel webhook");
-    } catch (err) {
-      console.error("❌ OpenAI or webhook error:", err);
     }
 
     
