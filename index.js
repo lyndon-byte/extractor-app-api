@@ -133,6 +133,8 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
         response: parsedData,
         timestamp: Date.now(),
       };
+
+      console.log(responseData);
     
       const responseSignature = crypto
         .createHmac("sha256", process.env.SHARED_SECRET)
