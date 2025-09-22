@@ -52,7 +52,7 @@ function verifySignature(req, res, next) {
   const signature = req.headers["x-signature"];
   const expected = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(JSON.stringify(req.body))
+    .update(req.rawBody)
     .digest("hex");
 
   if (signature !== expected) {
