@@ -29,22 +29,14 @@ const Resume = z.object({
   skills: z.array(z.string()),
   experience: z.array(
     z.object({
-      company: z.string(),
-      role: z.string(),
-      startDate: z.string(),
+      company: z.string().optional(),
+      role: z.string().optional(),
+      startDate: z.string().optional(),
       endDate: z.string().optional(),
       description: z.string().optional(),
     })
   ),
-  education: z.array(
-    z.object({
-      school: z.string(),
-      degree: z.string(),
-      fieldOfStudy: z.string().optional(),
-      startDate: z.string(),
-      endDate: z.string().optional(),
-    })
-  ),
+ 
 });
 
 
@@ -85,9 +77,9 @@ app.post("/api/extract-data", async (req, res) => {
     res.status(200).json(ackData);
 
     for (const file of files) {
-
-      async function getData() {
-
+      let parsedData = null;
+    
+      try {
         if (file.fileType === "image") {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
@@ -99,7 +91,7 @@ app.post("/api/extract-data", async (req, res) => {
                   { type: "text", text: "Please extract information from the image." },
                   {
                     type: "image_url",
-                    image_url: { url: file.fileContent },
+                    image_url: { url: `data:image/${file.fileExt};base64,${file.fileContent}` },
                   },
                 ],
               },
@@ -107,37 +99,32 @@ app.post("/api/extract-data", async (req, res) => {
             response_format: zodResponseFormat(Resume, "data"),
           });
     
-          return completion.choices[0].message.parsed;
+          parsedData = completion.choices?.[0]?.message?.parsed || null;
         } else {
-          try {
-            const completion = await openai.chat.completions.parse({
-              model: "gpt-4o-2024-08-06",
-              messages: [
-                { role: "system", content: "Extract the information." },
-                { role: "user", content: file.fileContent },
-              ],
-              response_format: zodResponseFormat(Resume, "data"),
-            });
+          const completion = await openai.chat.completions.parse({
+            model: "gpt-4o-2024-08-06",
+            messages: [
+              { role: "system", content: "Extract the information." },
+              { role: "user", content: file.fileContent },
+            ],
+            response_format: zodResponseFormat(Resume, "data"),
+          });
     
-            return completion.choices[0].message.parsed;
-          } catch (err) {
-            console.error("❌ OpenAI or webhook error:", err);
-            return null;
-          }
+          parsedData = completion.choices?.[0]?.message?.parsed || null;
         }
+      } catch (err) {
+        console.error("❌ OpenAI error:", err.response?.data || err.message);
       }
-    
-      const parsedData = await getData(); // ✅ Wait for result
     
       const responseData = {
         sessionId: file.sessionId,
-        status: "completed",
+        status: parsedData ? "completed" : "failed",
         from: "express",
         response: parsedData,
         timestamp: Date.now(),
       };
-
-      console.log(responseData);
+    
+      console.log("✅ Sending back:", responseData);
     
       const responseSignature = crypto
         .createHmac("sha256", process.env.SHARED_SECRET)
