@@ -13,8 +13,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const webhookUrl =  process.env.WEBHOOK_URL; 
 
-app.use(bodyParser.json({ limit: "50mb" }));
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+app.use(
+  bodyParser.json({
+    limit: "50mb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString(); // save original raw body as string
+    },
+  })
+);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
