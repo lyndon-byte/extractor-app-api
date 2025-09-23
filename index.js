@@ -14,11 +14,6 @@ const PORT = process.env.PORT || 3000;
 const webhookUrl =  process.env.WEBHOOK_URL; 
 
 app.use(express.json({ limit: "50mb" }));
-app.use(bodyParser.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
-  }
-}));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -44,21 +39,16 @@ const Resume = z.object({
 
 
 function verifySignature(req, res, next) {
-
   const signature = req.headers["x-signature"];
-  const timestamp = req.headers["x-timestamp"];
-
   const expected = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(`${timestamp}.${req.rawBody}`)
+    .update(JSON.stringify(req.body))
     .digest("hex");
 
   if (signature !== expected) {
     return res.status(403).json({ error: "Invalid signature" });
   }
-
   next();
-  
 }
 
 
