@@ -44,7 +44,7 @@ function verifySignature(req, res, next) {
   const signature = req.headers["x-signature"];
   const expected = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(req.rawBody)
+    .update(JSON.stringify(req.body))
     .digest("hex");
 
   if (signature !== expected) {
@@ -55,9 +55,7 @@ function verifySignature(req, res, next) {
 
 
 // Incoming webhook endpoint
-app.post("/api/extract-data", async (req, res) => {
-
-    console.log("BODY RECEIVED:", req.body);
+app.post("/api/extract-data", verifySignature,async (req, res) => {
 
     const files = req.body; 
 
@@ -118,6 +116,7 @@ app.post("/api/extract-data", async (req, res) => {
     
       const responseData = {
         sessionId: file.sessionId,
+        fileId: file.fileId,
         status: parsedData ? "completed" : "failed",
         from: "express",
         response: parsedData,
