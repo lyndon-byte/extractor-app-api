@@ -13,7 +13,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const webhookUrl =  process.env.WEBHOOK_URL; 
 
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({
+  limit: "50mb",
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString(); // ✅ exact raw payload for signature
+  }
+}));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -40,14 +45,28 @@ const Resume = z.object({
 
 function verifySignature(req, res, next) {
   const signature = req.headers["x-signature"];
+  const timestamp = req.headers["x-timestamp"];
+
+  if (!signature || !timestamp) {
+    return res.status(400).json({ error: "Missing signature or timestamp" });
+  }
+
+  // replay attack protection (5 minutes window)
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - parseInt(timestamp)) > 300) {
+    return res.status(401).json({ error: "Timestamp expired" });
+  }
+
+  // expected signature = HMAC(timestamp + '.' + rawBody)
   const expected = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(JSON.stringify(req.body))
+    .update(`${timestamp}.${req.rawBody}`)
     .digest("hex");
 
   if (signature !== expected) {
     return res.status(403).json({ error: "Invalid signature" });
   }
+
   next();
 }
 
