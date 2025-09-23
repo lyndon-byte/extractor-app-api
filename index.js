@@ -44,17 +44,9 @@ const Resume = z.object({
 
 
 function verifySignature(req, res, next) {
+
   const signature = req.headers["x-signature"];
   const timestamp = req.headers["x-timestamp"];
-
-  if (!signature || !timestamp) {
-    return res.status(400).json({ error: "Missing signature or timestamp" });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - parseInt(timestamp)) > 300) {
-    return res.status(401).json({ error: "Timestamp expired" });
-  }
 
   const expected = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
@@ -66,7 +58,9 @@ function verifySignature(req, res, next) {
   }
 
   next();
+  
 }
+
 
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature,async (req, res) => {
