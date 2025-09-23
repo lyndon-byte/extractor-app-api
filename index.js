@@ -41,16 +41,31 @@ const Resume = z.object({
 
 
 function verifySignature(req, res, next) {
-  const signature = req.headers["x-signature"];
-  const expected = crypto
-    .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(JSON.stringify(req.body))
-    .digest("hex");
 
-  if (signature !== expected) {
-    return res.status(403).json({ error: "Invalid signature" });
-  }
-  next();
+    const signature = req.headers["x-signature"];
+    const timestamp = req.headers["x-timestamp"];
+
+    if (!signature || !timestamp) {
+      return res.status(400).json({ error: "invalid session" });
+    }
+
+    // prevent replay attacks (5 minute tolerance window)
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - parseInt(timestamp)) > 300) {
+      return res.status(401).json({ error: "session expired" });
+    }
+
+    // calculate expected signature
+    const expected = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(`${timestamp}.${req.rawBody}`)
+      .digest("hex");
+
+    if (signature !== expected) {
+      return res.status(403).json({ error: "Invalid signature" });
+    }
+
+    next();
 }
 
 
