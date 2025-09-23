@@ -24,19 +24,18 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const Resume = z.object({
   name: z.string(),
   email: z.string().email(),
-  phone: z.string().optional(),
-  summary: z.string().optional(),
+  phone: z.string().nullable(),
+  summary: z.string().nullable(),
   skills: z.array(z.string()),
   experience: z.array(
     z.object({
-      company: z.string().optional(),
-      role: z.string().optional(),
-      startDate: z.string().optional(),
-      endDate: z.string().optional(),
-      description: z.string().optional(),
+      company: z.string().nullable(),
+      role: z.string().nullable(),
+      startDate: z.string().nullable(),
+      endDate: z.string().nullable(),
+      description: z.string().nullable(),
     })
   ),
- 
 });
 
 
@@ -77,6 +76,7 @@ app.post("/api/extract-data", async (req, res) => {
     res.status(200).json(ackData);
 
     for (const file of files) {
+
       let parsedData = null;
     
       try {
