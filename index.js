@@ -87,6 +87,8 @@ app.post("/api/extract-data", async (req, res) => {
 
     const files = req.body;  
 
+    console.log(process.env.OPENAI_API_KEY)
+
     const ackData = {
       status: "accepted",
       note: "Processing with OpenAI, result will be sent to webhook",
