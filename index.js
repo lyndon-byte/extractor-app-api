@@ -77,14 +77,15 @@ function buildZodSchema(def) {
 
 }
 
+const TestSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+});
+
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const { files, schema } = req.body;  
-
-    const DynamicSchema = buildZodSchema(schema);
-
-    console.log(DynamicSchema.shape);
 
     const ackData = {
       status: "accepted",
@@ -121,7 +122,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                 ],
               },
             ],
-            response_format: zodResponseFormat(DynamicSchema, "data"),
+            response_format: zodResponseFormat(TestSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
@@ -133,7 +134,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
               { role: "system", content: "Extract the information." },
               { role: "user", content: file.fileContent },
             ],
-            response_format: zodResponseFormat(DynamicSchema, "data"),
+            response_format: zodResponseFormat(TestSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
