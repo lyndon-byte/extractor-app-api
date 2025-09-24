@@ -74,7 +74,7 @@ function buildZodSchema(def) {
   }
 
   throw new Error(`Unsupported schema definition: ${def}`);
-  
+
 }
 
 // Incoming webhook endpoint
@@ -84,7 +84,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const DynamicSchema = buildZodSchema(schema);
 
-    console.log(DynamicSchema);
+    console.log(DynamicSchema.shape);
 
     const ackData = {
       status: "accepted",
