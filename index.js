@@ -83,7 +83,7 @@ const TestSchema = z.object({
 });
 
 // Incoming webhook endpoint
-app.post("/api/extract-data", verifySignature, async (req, res) => {
+app.post("/api/extract-data", async (req, res) => {
 
     const files = req.body;  
 
