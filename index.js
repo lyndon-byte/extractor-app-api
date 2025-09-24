@@ -125,6 +125,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
+
         } else {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
@@ -138,7 +139,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
           parsedData = completion.choices?.[0]?.message?.parsed || null;
         }
       } catch (err) {
-        console.error("❌ OpenAI error:", err.response?.data || err.message);
+        console.error("❌ OpenAI error:", err);
       }
     
       const responseData = {
