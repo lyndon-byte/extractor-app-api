@@ -79,11 +79,11 @@ function buildZodSchema(definition) {
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { files, schema } = req.body;
-
-    console.log(schema);
+    const { files, schema } = req.body;  
 
     const DynamicSchema = buildZodSchema(schema);
+
+    console.log(DynamicSchema);
 
     const ackData = {
       status: "accepted",
