@@ -50,46 +50,52 @@ function verifySignature(req, res, next) {
   next();
 }
 
-function buildZodSchema(def) {
+function buildZodSchema(schemaDef) {
 
-  if (typeof def === "string") {
-    if (def === "string") return z.string();
-    if (def === "number") return z.number();
-    if (def === "boolean") return z.boolean();
-    throw new Error(`Unknown type: ${def}`);
+  if (typeof schemaDef === "string") {
+    // Primitive types
+    switch (schemaDef) {
+      case "string":
+        return z.string();
+      case "string?":
+        return z.string().optional().nullable();
+      case "number":
+        return z.number();
+      case "number?":
+        return z.number().optional().nullable();
+      case "boolean":
+        return z.boolean();
+      case "boolean?":
+        return z.boolean().optional().nullable();
+      default:
+        return z.any(); // fallback
+    }
   }
 
-  if (Array.isArray(def)) {
-    // e.g. ["string"] → z.array(z.string())
-    return z.array(buildZodSchema(def[0]));
+  if (Array.isArray(schemaDef)) {
+    // Array handling: [ "string" ] or [ { ...object } ]
+    return z.array(buildZodSchema(schemaDef[0]));
   }
 
-  if (typeof def === "object" && def !== null) {
-    // Recursively handle objects
+  if (typeof schemaDef === "object" && schemaDef !== null) {
+    // Object handling: { key: type, key2: { ...nested } }
     const shape = {};
-    for (const [key, value] of Object.entries(def)) {
-      shape[key] = buildZodSchema(value);
+    for (const [key, val] of Object.entries(schemaDef)) {
+      shape[key] = buildZodSchema(val);
     }
     return z.object(shape);
   }
 
-  throw new Error(`Unsupported schema definition: ${def}`);
+  return z.any();
 
 }
 
-const TestSchema = z.object({
-  name: z.string(),
-  email: z.string(),
-});
-
 // Incoming webhook endpoint
-app.post("/api/extract-data", async (req, res) => {
+app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const files = req.body;  
+    const { files, schema } = req.body;
 
-    console.log("📥 Incoming payload:", files);
-    
-    console.log("📂 Files length:", files.length); // <--- does this print?
+    const DynamicSchema = buildZodSchema(schema);
 
     const ackData = {
       status: "accepted",
@@ -126,7 +132,7 @@ app.post("/api/extract-data", async (req, res) => {
                 ],
               },
             ],
-            response_format: zodResponseFormat(TestSchema, "data"),
+            response_format: zodResponseFormat(DynamicSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
@@ -138,7 +144,7 @@ app.post("/api/extract-data", async (req, res) => {
               { role: "system", content: "Extract the information." },
               { role: "user", content: file.fileContent },
             ],
-            response_format: zodResponseFormat(TestSchema, "data"),
+            response_format: zodResponseFormat(DynamicSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
