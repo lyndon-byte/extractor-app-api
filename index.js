@@ -93,6 +93,8 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const { files, schema } = req.body;
 
+    console.log(schema);
+
     const DynamicSchema = buildZodSchema(schema);
 
     const ackData = {
