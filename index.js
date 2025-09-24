@@ -87,7 +87,9 @@ app.post("/api/extract-data", async (req, res) => {
 
     const files = req.body;  
 
-    console.log(process.env.OPENAI_API_KEY)
+    console.log("📥 Incoming payload:", files);
+    
+    console.log("📂 Files length:", files.length); // <--- does this print?
 
     const ackData = {
       status: "accepted",
@@ -142,7 +144,9 @@ app.post("/api/extract-data", async (req, res) => {
           parsedData = completion.choices?.[0]?.message?.parsed || null;
         }
       } catch (err) {
-        console.error("❌ OpenAI error:", err);
+
+        console.error("❌ OpenAI error:", err.response?.data || err.message || err);
+
       }
     
       const responseData = {
