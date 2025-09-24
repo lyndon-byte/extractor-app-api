@@ -50,30 +50,31 @@ function verifySignature(req, res, next) {
   next();
 }
 
-function buildZodSchema(definition) {
-  if (typeof definition === "string") {
-    switch (definition) {
-      case "string": return z.string();
-      case "email": return z.string().email();
-      case "number": return z.number();
-      case "boolean": return z.boolean();
-      default: return z.string(); // fallback
-    }
+function buildZodSchema(def) {
+
+  if (typeof def === "string") {
+    if (def === "string") return z.string();
+    if (def === "number") return z.number();
+    if (def === "boolean") return z.boolean();
+    throw new Error(`Unknown type: ${def}`);
   }
 
-  if (typeof definition === "object" && !Array.isArray(definition)) {
+  if (Array.isArray(def)) {
+    // e.g. ["string"] → z.array(z.string())
+    return z.array(buildZodSchema(def[0]));
+  }
+
+  if (typeof def === "object" && def !== null) {
+    // Recursively handle objects
     const shape = {};
-    for (const key in definition) {
-      shape[key] = buildZodSchema(definition[key]);
+    for (const [key, value] of Object.entries(def)) {
+      shape[key] = buildZodSchema(value);
     }
     return z.object(shape);
   }
 
-  if (Array.isArray(definition)) {
-    return z.array(buildZodSchema(definition[0]));
-  }
-
-  throw new Error("Unsupported schema type");
+  throw new Error(`Unsupported schema definition: ${def}`);
+  
 }
 
 // Incoming webhook endpoint
