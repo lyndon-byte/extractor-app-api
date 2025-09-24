@@ -50,42 +50,30 @@ function verifySignature(req, res, next) {
   next();
 }
 
-function buildZodSchema(schemaDef) {
-  if (typeof schemaDef === "string") {
-    // Primitive types
-    switch (schemaDef) {
-      case "string":
-        return z.string();
-      case "string?":
-        return z.string().optional().nullable();
-      case "number":
-        return z.number();
-      case "number?":
-        return z.number().optional().nullable();
-      case "boolean":
-        return z.boolean();
-      case "boolean?":
-        return z.boolean().optional().nullable();
-      default:
-        return z.any(); // fallback
+function buildZodSchema(definition) {
+  if (typeof definition === "string") {
+    switch (definition) {
+      case "string": return z.string();
+      case "email": return z.string().email();
+      case "number": return z.number();
+      case "boolean": return z.boolean();
+      default: return z.string(); // fallback
     }
   }
 
-  if (Array.isArray(schemaDef)) {
-    // Array handling: [ "string" ] or [ { ...object } ]
-    return z.array(buildZodSchema(schemaDef[0]));
-  }
-
-  if (typeof schemaDef === "object" && schemaDef !== null) {
-    // Object handling: { key: type, key2: { ...nested } }
+  if (typeof definition === "object" && !Array.isArray(definition)) {
     const shape = {};
-    for (const [key, val] of Object.entries(schemaDef)) {
-      shape[key] = buildZodSchema(val);
+    for (const key in definition) {
+      shape[key] = buildZodSchema(definition[key]);
     }
     return z.object(shape);
   }
 
-  return z.any(); // fallback
+  if (Array.isArray(definition)) {
+    return z.array(buildZodSchema(definition[0]));
+  }
+
+  throw new Error("Unsupported schema type");
 }
 
 // Incoming webhook endpoint
