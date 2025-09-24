@@ -85,7 +85,7 @@ const TestSchema = z.object({
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { files, schema } = req.body;  
+    const files = req.body;  
 
     const ackData = {
       status: "accepted",
