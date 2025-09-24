@@ -22,26 +22,6 @@ app.use(express.json({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Schema for events
-
-const Resume = z.object({
-  name: z.string(),
-  email: z.string().email(),
-  phone: z.string().nullable(),
-  summary: z.string().nullable(),
-  skills: z.array(z.string()),
-  experience: z.array(
-    z.object({
-      company: z.string().nullable(),
-      role: z.string().nullable(),
-      startDate: z.string().nullable(),
-      endDate: z.string().nullable(),
-      description: z.string().nullable(),
-    })
-  ),
-});
-
-
 
 function verifySignature(req, res, next) {
   const signature = req.headers["x-signature"];
@@ -70,11 +50,50 @@ function verifySignature(req, res, next) {
   next();
 }
 
+function buildZodSchema(schemaDef) {
+  if (typeof schemaDef === "string") {
+    // Primitive types
+    switch (schemaDef) {
+      case "string":
+        return z.string();
+      case "string?":
+        return z.string().optional().nullable();
+      case "number":
+        return z.number();
+      case "number?":
+        return z.number().optional().nullable();
+      case "boolean":
+        return z.boolean();
+      case "boolean?":
+        return z.boolean().optional().nullable();
+      default:
+        return z.any(); // fallback
+    }
+  }
+
+  if (Array.isArray(schemaDef)) {
+    // Array handling: [ "string" ] or [ { ...object } ]
+    return z.array(buildZodSchema(schemaDef[0]));
+  }
+
+  if (typeof schemaDef === "object" && schemaDef !== null) {
+    // Object handling: { key: type, key2: { ...nested } }
+    const shape = {};
+    for (const [key, val] of Object.entries(schemaDef)) {
+      shape[key] = buildZodSchema(val);
+    }
+    return z.object(shape);
+  }
+
+  return z.any(); // fallback
+}
 
 // Incoming webhook endpoint
-app.post("/api/extract-data", verifySignature,async (req, res) => {
+app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const files = req.body; 
+    const { files, schema } = req.body;
+
+    const DynamicSchema = buildZodSchema(schema);
 
     const ackData = {
       status: "accepted",
@@ -111,7 +130,7 @@ app.post("/api/extract-data", verifySignature,async (req, res) => {
                 ],
               },
             ],
-            response_format: zodResponseFormat(Resume, "data"),
+            response_format: zodResponseFormat(DynamicSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
@@ -122,7 +141,7 @@ app.post("/api/extract-data", verifySignature,async (req, res) => {
               { role: "system", content: "Extract the information." },
               { role: "user", content: file.fileContent },
             ],
-            response_format: zodResponseFormat(Resume, "data"),
+            response_format: zodResponseFormat(DynamicSchema, "data"),
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
