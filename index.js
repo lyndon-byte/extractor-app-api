@@ -2,7 +2,6 @@ import express from "express";
 import axios from "axios";
 import OpenAI from "openai";
 import dotenv from "dotenv";
-import bodyParser from "body-parser";
 import crypto from "crypto"; // built-in
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
@@ -95,8 +94,6 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const { files, schema } = req.body;
 
-    const DynamicSchema = buildZodSchema(schema);
-
     const ackData = {
       status: "accepted",
       note: "Processing with OpenAI, result will be sent to webhook",
@@ -132,7 +129,10 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                 ],
               },
             ],
-            response_format: zodResponseFormat(DynamicSchema, "data"),
+            response_format: {
+              type: "json_schema",
+              json_schema: schema
+            },
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
@@ -144,7 +144,10 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
               { role: "system", content: "Extract the information." },
               { role: "user", content: file.fileContent },
             ],
-            response_format: zodResponseFormat(DynamicSchema, "data"),
+            response_format: {
+              type: "json_schema",
+              json_schema: schema
+            },
           });
     
           parsedData = completion.choices?.[0]?.message?.parsed || null;
