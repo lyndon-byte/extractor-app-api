@@ -248,7 +248,7 @@ app.get("/api/google-callback", async (req, res) => {
 
   try {
 
-    const { code } = req.query;
+    const code = req.query.code;
     const { tokens } = await oauth2Client.getToken(code);
 
     // Set credentials
