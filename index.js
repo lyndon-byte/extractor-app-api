@@ -369,7 +369,7 @@ app.post("/api/view-email", async (req, res) => {
     }
   } catch (err) {
     console.error("Error fetching message:", err);
-    res.status(500).json(err);
+    res.status(500).json(err.message);
   }
 
 
