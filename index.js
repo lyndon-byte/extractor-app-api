@@ -17,6 +17,8 @@ const webhookDomain =  process.env.WEBHOOK_DOMAIN;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
+const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+
 
 const oauth2Client = new google.auth.OAuth2(
   GOOGLE_CLIENT_ID,
@@ -232,36 +234,76 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
 
 app.get("/api/auth-google", (req, res) => {
   
-  // Scopes for Gmail API
-  const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
-  
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
+    prompt: "consent select_account",
     scope: SCOPES,
   });
   res.redirect(url);
+
 });
 
 // Step 2: Handle callback and exchange code for tokens
 app.get("/api/google-callback", async (req, res) => {
-  const code = req.query.code;
-  const { tokens } = await oauth2Client.getToken(code);
-  oauth2Client.setCredentials(tokens);
 
-  // ✅ Save tokens to DB or session
-  console.log("Tokens:", tokens);
+  try {
 
-  // Example: List Gmail labels
-  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
-  const result = await gmail.users.labels.list({ userId: "me" });
+    const { code } = req.query;
+    const { tokens } = await oauth2Client.getToken(code);
 
-  res.json({
-    message: "Authenticated with Gmail API",
-    labels: result.data.labels,
-  });
+    // Set credentials
+    oauth2Client.setCredentials(tokens);
+
+    // Get user email
+    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+    const email = userInfo.data.email;
+
+    // Save user tokens (use DB in real apps)
+    users[email] = {
+      refresh_token: tokens.refresh_token,
+      access_token: tokens.access_token,
+    };
+
+    // Start watching Gmail inbox for this user
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    await gmail.users.watch({
+      userId: "me",
+      requestBody: {
+        topicName: "projects/database-test-edc41/topics/received-emails",
+        labelIds: ["INBOX"],
+      },
+    });
+
+    res.send(`✅ Gmail watch started for ${email}`);
+  } catch (err) {
+    console.error("Auth error:", err);
+    res.status(500).send("Authentication failed");
+  }
+
 });
 
+app.post("/api/gmail-received-email-notification", (req, res) => {
+  try {
+    console.log("📩 New Gmail Pub/Sub Notification:", req.body);
 
+    // The body will contain message.data (Base64 encoded)
+    // Decode it to get historyId & email
+    if (req.body.message && req.body.message.data) {
+      const data = Buffer.from(req.body.message.data, "base64").toString("utf8");
+      const parsed = JSON.parse(data);
+      console.log("Decoded notification:", parsed);
+
+      // parsed looks like:
+      // { emailAddress: "user@gmail.com", historyId: "12345" }
+    }
+
+    res.status(200).send(); // must reply 200 to Google
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).send();
+  }
+});
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
