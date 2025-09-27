@@ -218,15 +218,25 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
   
 });
 
-app.post("/api/authenticate", async (req, res) => {
+app.get("/api/authenticate", async (req, res) => {
+  
+  const code = req.query.code;
+  const error = req.query.error;
 
-  const data = req.body;
+  if (error) {
+    console.error("❌ Google OAuth Error:", error);
+    return res.status(400).send("OAuth Error: " + error);
+  }
 
-  console.log("✅ Authenticated Creds:", data);
+  console.log("✅ Authorization code:", code);
 
-  res.status(200).json('sucess');
+  // Next: Exchange code for tokens
+  // You need to POST this code to Google's token endpoint:
+  // https://oauth2.googleapis.com/token
 
+  res.send("Authentication success! You can close this window.");
 });
+
 
 
 // Start server
