@@ -236,7 +236,6 @@ app.get("/api/auth-google", (req, res) => {
   
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent select_account",
     scope: SCOPES,
   });
   res.redirect(url);
@@ -255,15 +254,15 @@ app.get("/api/google-callback", async (req, res) => {
     oauth2Client.setCredentials(tokens);
 
     // Get user email
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
-    const userInfo = await oauth2.userinfo.get();
-    const email = userInfo.data.email;
+    // const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    // const userInfo = await oauth2.userinfo.get();
+    // const email = userInfo.data.email;
 
-    // Save user tokens (use DB in real apps)
-    users[email] = {
-      refresh_token: tokens.refresh_token,
-      access_token: tokens.access_token,
-    };
+    // // Save user tokens (use DB in real apps)
+    // users[email] = {
+    //   refresh_token: tokens.refresh_token,
+    //   access_token: tokens.access_token,
+    // };
 
     // Start watching Gmail inbox for this user
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
