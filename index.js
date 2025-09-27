@@ -333,9 +333,8 @@ app.get("/api/google-logout", async (req, res) => {
 
 app.post("/api/unsubscribe-gmail", async (req, res) => {
 
-    const access_token = req.query.access_token;
-    const refresh_token = req.query.refresh_token;
-
+    const {access_token,refresh_token} = req.body;
+    
     oauth2Client.setCredentials({
 
        access_token: access_token,
@@ -345,11 +344,11 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-    const res = await gmail.users.stop({
+    const gmailResponse = await gmail.users.stop({
       userId: "me",
     });
 
-    console.log("🛑 Watch stopped:", res.data);
+    console.log("🛑 Watch stopped:", gmailResponse.data);
 
     res.status(200).json('gmail was unsubscribed!');
 
