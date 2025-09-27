@@ -272,7 +272,7 @@ app.get("/api/google-callback", async (req, res) => {
     // Start watching Gmail inbox for this user
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
     const result = await gmail.users.labels.list({ userId: "me" });
-
+    
     const profile = await gmail.users.getProfile({ userId: "me" });
 
     await gmail.users.watch({
@@ -318,6 +318,60 @@ app.post("/api/gmail-received-email-notification", (req, res) => {
     console.error("Webhook error:", err);
     res.status(500).send();
   }
+});
+
+app.get("/api/view-email", async (req, res) => {
+
+  const {access_token,refresh_token,message_id} = req.body;
+
+  oauth2Client.setCredentials({
+
+    access_token: access_token,
+    refresh_token: refresh_token
+
+ })
+
+ const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+  try {
+    const email = await gmail.users.messages.get({
+      userId: "me",
+      id: message_id,
+      format: "full", 
+    });
+
+    const message = email.data;
+
+    console.log("📧 Subject:", getHeader(message.payload.headers, "Subject"));
+    console.log("📧 From:", getHeader(message.payload.headers, "From"));
+    console.log("📧 To:", getHeader(message.payload.headers, "To"));
+
+    // If you want the body text
+    const body = getBody(message.payload);
+    console.log("📩 Body:", body);
+
+    // If you want attachments
+    if (message.payload.parts) {
+      for (const part of message.payload.parts) {
+        if (part.filename && part.body.attachmentId) {
+          console.log("📎 Attachment:", part.filename);
+
+          const attachment = await gmail.users.messages.attachments.get({
+            userId: "me",
+            messageId: message.id,
+            id: part.body.attachmentId,
+          });
+
+          // Attachment data is base64url encoded
+          console.log("Attachment data (base64):", attachment.data.data);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching message:", err);
+  }
+
+
 });
 
 app.get("/api/google-logout", async (req, res) => {
