@@ -266,15 +266,14 @@ app.get("/api/google-callback", async (req, res) => {
 
     // Start watching Gmail inbox for this user
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
-    await gmail.users.watch({
-      userId: "me",
-      requestBody: {
-        topicName: "projects/database-test-edc41/topics/received-emails",
-        labelIds: ["INBOX"],
-      },
+    const result = await gmail.users.labels.list({ userId: "me" });
+
+    res.json({
+      message: "Authenticated with Gmail API",
+      labels: result.data.labels,
     });
 
-    res.send(`✅ Gmail watch started for`);
+    
   } catch (err) {
     console.error("Auth error:", err);
     res.status(500).send("Authentication failed");
