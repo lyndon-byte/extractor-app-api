@@ -5,12 +5,18 @@ import dotenv from "dotenv";
 import crypto from "crypto"; // built-in
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { google } from "googleapis";
+
 
 dotenv.config(); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
 
 app.use(express.json({
   limit: "50mb",
@@ -218,25 +224,42 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
   
 });
 
-app.get("/api/authenticate", async (req, res) => {
+app.get("/api/auth-google", (req, res) => {
+
+  const oauth2Client = new google.auth.OAuth2(
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI
+  );
   
-  const code = req.query.code;
-  const error = req.query.error;
-
-  if (error) {
-    console.error("❌ Google OAuth Error:", error);
-    return res.status(400).send("OAuth Error: " + error);
-  }
-
-  console.log("✅ Authorization code:", code);
-
-  // Next: Exchange code for tokens
-  // You need to POST this code to Google's token endpoint:
-  // https://oauth2.googleapis.com/token
-
-  res.send("Authentication success! You can close this window.");
+  // Scopes for Gmail API
+  const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+  
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: SCOPES,
+  });
+  res.redirect(url);
 });
 
+// Step 2: Handle callback and exchange code for tokens
+app.get("/api/google-callback", async (req, res) => {
+  const code = req.query.code;
+  const { tokens } = await oauth2Client.getToken(code);
+  oauth2Client.setCredentials(tokens);
+
+  // ✅ Save tokens to DB or session
+  console.log("Tokens:", tokens);
+
+  // Example: List Gmail labels
+  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+  const result = await gmail.users.labels.list({ userId: "me" });
+
+  res.json({
+    message: "Authenticated with Gmail API",
+    labels: result.data.labels,
+  });
+});
 
 
 // Start server
