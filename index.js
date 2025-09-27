@@ -218,6 +218,16 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
   
 });
 
+app.post("/api/authenticate", async (req, res) => {
+
+  const data = req.body;
+
+  console.log("✅ Authenticated Creds:", data);
+
+  res.status(200).json('sucess');
+
+});
+
 
 // Start server
 app.listen(PORT, () => {
