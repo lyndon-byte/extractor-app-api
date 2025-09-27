@@ -17,7 +17,7 @@ const webhookDomain =  process.env.WEBHOOK_DOMAIN;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
-const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const SCOPES = ["https://www.googleapis.com/"];
 
 
 const oauth2Client = new google.auth.OAuth2(
@@ -275,13 +275,13 @@ app.get("/api/google-callback", async (req, res) => {
 
     const profile = await gmail.users.getProfile({ userId: "me" });
 
-    // await gmail.users.watch({
-    //   userId: "me",
-    //   requestBody: {
-    //     topicName: "projects/database-test-edc41/topics/received-emails",
-    //     labelIds: ["INBOX"],
-    //   },
-    // });
+    await gmail.users.watch({
+      userId: "me",
+      requestBody: {
+        topicName: "projects/database-test-edc41/topics/received-emails",
+        labelIds: ["INBOX"],
+      },
+    });
     res.json({
 
       message: "Authenticated with Gmail API",
