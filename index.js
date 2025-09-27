@@ -320,7 +320,7 @@ app.post("/api/gmail-received-email-notification", (req, res) => {
   }
 });
 
-app.get("/api/view-email", async (req, res) => {
+app.post("/api/view-email", async (req, res) => {
 
   const {access_token,refresh_token,message_id} = req.body;
 
