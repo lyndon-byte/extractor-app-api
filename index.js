@@ -341,7 +341,9 @@ app.post("/api/view-email", async (req, res) => {
       startHistoryId: history_id
     });
 
-    console.log("History Data:", history.data.history)
+    // console.log("History Data:", history.data.history)
+
+    res.status(200).json(history.data.history)
     // const email = await gmail.users.messages.get({
     //   userId: "me",
     //   id: message_id,
