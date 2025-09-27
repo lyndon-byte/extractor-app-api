@@ -268,9 +268,15 @@ app.get("/api/google-callback", async (req, res) => {
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
     const result = await gmail.users.labels.list({ userId: "me" });
 
+    const profile = await gmail.users.getProfile({ userId: "me" });
+
+
     res.json({
+
       message: "Authenticated with Gmail API",
+      profile: profile,
       labels: result.data.labels,
+      
     });
 
     
