@@ -330,6 +330,32 @@ app.get("/api/google-logout", async (req, res) => {
 
 
 });
+
+app.get("/api/unsubscribe-gmail", async (req, res) => {
+
+    const access_token = req.query.access_token;
+    const refresh_token = req.query.refresh_token;
+
+    oauth2Client.setCredentials({
+
+       access_token: access_token,
+       refresh_token: refresh_token
+
+    })
+
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+    const res = await gmail.users.stop({
+      userId: "me",
+    });
+
+    console.log("🛑 Watch stopped:", res.data);
+
+    res.status(200).json('gmail was unsubscribed!');
+
+
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
