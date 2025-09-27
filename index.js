@@ -274,7 +274,7 @@ app.get("/api/google-callback", async (req, res) => {
       },
     });
 
-    // res.send(`✅ Gmail watch started for ${email}`);
+    res.send(`✅ Gmail watch started for`);
   } catch (err) {
     console.error("Auth error:", err);
     res.status(500).send("Authentication failed");
