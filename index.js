@@ -303,6 +303,15 @@ app.post("/api/gmail-received-email-notification", (req, res) => {
     res.status(500).send();
   }
 });
+
+app.get("/api/google-logout", async (req, res) => {
+
+    await oauth2Client.revokeCredentials();
+
+    res.status(200).json('all tokens was revoked!');
+
+
+});
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
