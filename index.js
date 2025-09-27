@@ -306,7 +306,9 @@ app.post("/api/gmail-received-email-notification", (req, res) => {
 
 app.get("/api/google-logout", async (req, res) => {
 
-    await oauth2Client.revokeCredentials();
+    const token = req.query.token;
+
+    await oauth2Client.revokeCredentials(token);
 
     res.status(200).json('all tokens was revoked!');
 
