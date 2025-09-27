@@ -254,7 +254,10 @@ app.get("/api/google-callback", async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
 
     // Set credentials
-    oauth2Client.setCredentials(tokens);
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    });
 
     // Get user email
     // const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
