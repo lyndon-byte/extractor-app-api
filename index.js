@@ -331,7 +331,7 @@ app.get("/api/google-logout", async (req, res) => {
 
 });
 
-app.get("/api/unsubscribe-gmail", async (req, res) => {
+app.post("/api/unsubscribe-gmail", async (req, res) => {
 
     const access_token = req.query.access_token;
     const refresh_token = req.query.refresh_token;
