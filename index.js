@@ -322,7 +322,7 @@ app.post("/api/gmail-received-email-notification", (req, res) => {
 
 app.post("/api/view-email", async (req, res) => {
 
-  const {access_token,refresh_token,message_id} = req.body;
+  const {access_token,refresh_token,history_id} = req.body;
 
   oauth2Client.setCredentials({
 
@@ -331,42 +331,51 @@ app.post("/api/view-email", async (req, res) => {
 
  })
 
- const gmail = google.gmail({ version: "v1", auth: oauth2Client });
-
+ 
   try {
-    const email = await gmail.users.messages.get({
+
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+    const history = await gmail.users.history.list({
       userId: "me",
-      id: message_id,
-      format: "full", 
+      startHistoryId: history_id
     });
 
-    const message = email.data;
+    console.log("History Data:", history.data.history)
+    // const email = await gmail.users.messages.get({
+    //   userId: "me",
+    //   id: message_id,
+    //   format: "full", 
+    // });
 
-    console.log("📧 Subject:", getHeader(message.payload.headers, "Subject"));
-    console.log("📧 From:", getHeader(message.payload.headers, "From"));
-    console.log("📧 To:", getHeader(message.payload.headers, "To"));
+    // const message = email.data;
 
-    // If you want the body text
-    const body = getBody(message.payload);
-    console.log("📩 Body:", body);
+    // console.log("📧 Subject:", getHeader(message.payload.headers, "Subject"));
+    // console.log("📧 From:", getHeader(message.payload.headers, "From"));
+    // console.log("📧 To:", getHeader(message.payload.headers, "To"));
 
-    // If you want attachments
-    if (message.payload.parts) {
-      for (const part of message.payload.parts) {
-        if (part.filename && part.body.attachmentId) {
-          console.log("📎 Attachment:", part.filename);
+    // // If you want the body text
+    // const body = getBody(message.payload);
+    // console.log("📩 Body:", body);
 
-          const attachment = await gmail.users.messages.attachments.get({
-            userId: "me",
-            messageId: message.id,
-            id: part.body.attachmentId,
-          });
+    // // If you want attachments
+    // if (message.payload.parts) {
+    //   for (const part of message.payload.parts) {
+    //     if (part.filename && part.body.attachmentId) {
+    //       console.log("📎 Attachment:", part.filename);
 
-          // Attachment data is base64url encoded
-          console.log("Attachment data (base64):", attachment.data.data);
-        }
-      }
-    }
+    //       const attachment = await gmail.users.messages.attachments.get({
+    //         userId: "me",
+    //         messageId: message.id,
+    //         id: part.body.attachmentId,
+    //       });
+
+    //       // Attachment data is base64url encoded
+    //       console.log("Attachment data (base64):", attachment.data.data);
+    //     }
+    //   }
+    // }
+
   } catch (err) {
     console.error("Error fetching message:", err);
     res.status(500).json(err.message);
