@@ -235,8 +235,11 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
 app.get("/api/auth-google", (req, res) => {
   
   const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
+
+    access_type: "offline",       // needed for refresh_token
+    prompt: "consent",   
     scope: SCOPES,
+
   });
   res.redirect(url);
 
@@ -270,13 +273,20 @@ app.get("/api/google-callback", async (req, res) => {
 
     const profile = await gmail.users.getProfile({ userId: "me" });
 
-
+    await gmail.users.watch({
+      userId: "me",
+      requestBody: {
+        topicName: "projects/database-test-edc41/topics/received-emails",
+  
+        labelIds: ["INBOX"],
+      },
+    });
     res.json({
 
       message: "Authenticated with Gmail API",
       profile: profile,
       labels: result.data.labels,
-      
+
     });
 
     
