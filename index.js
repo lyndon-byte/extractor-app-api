@@ -17,7 +17,7 @@ const webhookDomain =  process.env.WEBHOOK_DOMAIN;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
-const SCOPES = ["https://www.googleapis.com/"];
+const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.modify"];
 
 
 const oauth2Client = new google.auth.OAuth2(
