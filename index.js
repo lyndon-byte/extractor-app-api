@@ -18,6 +18,12 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
 
+const oauth2Client = new google.auth.OAuth2(
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI
+);
+
 app.use(express.json({
   limit: "50mb",
   verify: (req, res, buf) => {
@@ -225,12 +231,6 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
 });
 
 app.get("/api/auth-google", (req, res) => {
-
-  const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI
-  );
   
   // Scopes for Gmail API
   const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
