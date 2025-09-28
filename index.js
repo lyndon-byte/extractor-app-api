@@ -63,6 +63,29 @@ function verifySignature(req, res, next) {
   next();
 }
 
+function getHeader(headers, name) {
+  const found = headers.find((h) => h.name.toLowerCase() === name.toLowerCase());
+  return found ? found.value : "";
+}
+
+// Helper: recursively extract plain text body
+function getBody(payload) {
+  let body = "";
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (part.mimeType === "text/plain" && part.body.data) {
+        body += Buffer.from(part.body.data, "base64").toString("utf8");
+      } else if (part.parts) {
+        body += getBody(part);
+      }
+    }
+  } else if (payload.body && payload.body.data) {
+    body += Buffer.from(payload.body.data, "base64").toString("utf8");
+  }
+  return body;
+}
+
+
 const JsonSchema = z.object({
   name: z.string(),
   schema: z.string(),
