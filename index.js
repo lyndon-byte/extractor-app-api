@@ -367,14 +367,17 @@ app.post("/api/view-email", async (req, res) => {
 
     const message = email.data;
 
-    console.log("📧 Subject:", getHeader(message.payload.headers, "Subject"));
-    console.log("📧 From:", getHeader(message.payload.headers, "From"));
-    console.log("📧 To:", getHeader(message.payload.headers, "To"));
-
-    // If you want the body text
-    const body = getBody(message.payload);
-    console.log("📩 Body:", body);
-
+    const result = {
+      id: message.id,
+      threadId: message.threadId,
+      subject: getHeader(message.payload.headers, "Subject"),
+      from: getHeader(message.payload.headers, "From"),
+      to: getHeader(message.payload.headers, "To"),
+      body: getBody(message.payload),
+      attachments: [],
+    };
+    
+  
     // If you want attachments
     if (message.payload.parts) {
       for (const part of message.payload.parts) {
@@ -388,10 +391,18 @@ app.post("/api/view-email", async (req, res) => {
           });
 
           // Attachment data is base64url encoded
-          console.log("Attachment data (base64):", attachment.data.data);
+          result.attachments.push({
+            filename: part.filename,
+            mimeType: part.mimeType,
+            size: part.body.size,
+            data: attachment.data.data, // base64url encoded
+          });
         }
       }
     }
+
+    res.json(result);
+
 
   } catch (err) {
     console.error("Error fetching message:", err);
