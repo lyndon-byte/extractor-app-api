@@ -122,7 +122,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
             messages: [
               { role: "system", content: `Extract information on the image.  
                 If any dates are present, normalize them into a valid date format:
-                - Month + Year → MM/YYYY (e.g., "Aug 2022" → "8/2022").
+                - Month + Year → MM/YYYY (e.g., "Aug 2022" → "08/2022").
                 - Full date → MM/DD/YYYY if day is available.
                 Use numeric months (e.g., "January" → "1").` 
               },
@@ -154,7 +154,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                 content: `
                   Extract the information. 
                   If any dates are present, normalize them into a valid date format:
-                  - Month + Year → MM/YYYY (e.g., "Aug 2022" → "8/2022").
+                  - Month + Year → MM/YYYY (e.g., "Aug 2022" → "08/2022").
                   - Full date → MM/DD/YYYY if day is available.
                   Use numeric months (e.g., "January" → "1").
                 `,
