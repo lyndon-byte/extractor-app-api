@@ -17,7 +17,7 @@ const webhookDomain =  process.env.WEBHOOK_DOMAIN;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
-const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.modify"];
+const SCOPES = ["https://www.googleapis.com/auth/gmail.r eadonly","https://www.googleapis.com/auth/gmail.modify"];
 
 
 const oauth2Client = new google.auth.OAuth2(
@@ -120,7 +120,12 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
             messages: [
-              { role: "system", content: "Extract information on the image using the given schema" },
+              { role: "system", content: `Extract information on the image.  
+                If any dates are present, normalize them into a valid date format:
+                - Month + Year → MM/YYYY (e.g., "Aug 2022" → "8/2022").
+                - Full date → MM/DD/YYYY if day is available.
+                Use numeric months (e.g., "January" → "1").` 
+              },
               {
                 role: "user",
                 content: [
@@ -144,7 +149,16 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
             messages: [
-              { role: "system", content: "Extract the information." },
+              {
+                role: "system",
+                content: `
+                  Extract the information. 
+                  If any dates are present, normalize them into a valid date format:
+                  - Month + Year → MM/YYYY (e.g., "Aug 2022" → "8/2022").
+                  - Full date → MM/DD/YYYY if day is available.
+                  Use numeric months (e.g., "January" → "1").
+                `,
+              },
               { role: "user", content: file.fileContent },
             ],
             response_format: {
