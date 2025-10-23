@@ -483,7 +483,8 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
-    const sessionId = req.body.session_id;
+    const sessionId = req.headers['x-session-id'];
+    const filePath = req.file.path;
 
     const ackData = {
       status: "accepted",
@@ -493,41 +494,47 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
    res.status(200).json(ackData);
 
-   let result = null;
-
    try {
+    const messages = await PythonShell.run("transcribe.py", {
+      pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
+      args: [filePath],
+    });
 
-      const filePath = req.file.path;
-      // Run Python script
-      PythonShell.run("transcribe.py", {   
-        pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
-        args: [filePath] 
-      }).then(messages => {
+    fs.unlinkSync(filePath); // cleanup temp file
 
-        fs.unlinkSync(filePath);
+    let result = null;
 
-        result = JSON.parse(messages.join(''));
+    try {
 
-      }).catch(err => {
-        console.error(err);
-        res.status(500).json({ error: "Transcription failed" });
-      });
+      result = JSON.parse(messages.join(""));
 
-      const responseData = {
-        success: true,
-        sessionId: sessionId,
-        language: result.language,
-        duration: result.duration,
-        text: result.text,
-        segments: result.segments,
-      };
+    } catch (e) {
 
-      await axios.post(`${webhookDomain}/webhook`,responseData);
-  
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error.message });
+      console.error("Invalid JSON from Python:", messages);
+      
+      return;
     }
+
+    if (!result) {
+      console.error("No result from transcription");
+      return;
+    }
+
+    const responseData = {
+      success: true,
+      sessionId: sessionId,
+      language: result.language,
+      duration: result.duration,
+      text: result.text,
+      segments: result.segments,
+    };
+
+    await axios.post(`${webhookDomain}/webhook`, responseData);
+    console.log(`Webhook sent for session ${sessionId}`);
+
+  } catch (error) {
+    console.error("Transcription error:", error);
+  }
 
 });
 
