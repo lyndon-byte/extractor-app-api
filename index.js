@@ -479,6 +479,9 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 });
 
 app.post("/api/transcribe", [upload.single("file"), verifySignature], async (req, res) => {
+
+  console.log("open ai key", process.env.OPENAI_API_KEY);
+
   try {
 
     const filePath = req.file.path;
