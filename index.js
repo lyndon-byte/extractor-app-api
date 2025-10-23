@@ -40,26 +40,33 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 
 function verifySignature(req, res, next) {
+  
   const signature = req.headers["x-signature"];
   const timestamp = req.headers["x-timestamp"];
 
   if (!signature || !timestamp) {
-    return res.status(400).json({ error: "Invalid Session" });
+    return res.status(400).json({ error: "Invalid session" });
   }
 
-  // replay attack protection (5 minutes window)
+  // ⏱️ Prevent replay attacks (5-minute window)
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - parseInt(timestamp)) > 300) {
     return res.status(401).json({ error: "Session expired" });
   }
 
-  // expected signature = HMAC(timestamp + '.' + rawBody)
-  const expected = crypto
+  // 🧩 Compute hash of the uploaded file
+  const fileBuffer = fs.readFileSync(req.file.path);
+  const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+
+  // 💡 Must match Laravel's payload format
+  const payloadToSign = `${timestamp}.${fileHash}`;
+
+  const expectedSignature = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(`${timestamp}.${req.rawBody}`)
+    .update(payloadToSign)
     .digest("hex");
 
-  if (signature !== expected) {
+  if (signature !== expectedSignature) {
     return res.status(403).json({ error: "Invalid signature" });
   }
 
