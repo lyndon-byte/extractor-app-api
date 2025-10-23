@@ -8,9 +8,16 @@ import { z } from "zod";
 import { google } from "googleapis";
 import multer from "multer";
 import fs from "fs";
+import { File } from "node:buffer";
+
 
 
 dotenv.config(); 
+
+
+if (!globalThis.File) {
+  globalThis.File = File;
+}
 
 const upload = multer({ dest: "uploads/" });
 const app = express();
@@ -40,7 +47,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 
 function verifySignature(req, res, next) {
-  
+
   const signature = req.headers["x-signature"];
   const timestamp = req.headers["x-timestamp"];
 
