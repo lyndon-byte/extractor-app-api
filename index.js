@@ -483,7 +483,7 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
-    const sessionId = req.headers['x-session-id'];
+    const sessionId = req.body.session_id;
 
     const ackData = {
       status: "accepted",
