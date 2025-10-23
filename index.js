@@ -6,10 +6,13 @@ import crypto from "crypto"; // built-in
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { google } from "googleapis";
+import multer from "multer";
+import fs from "fs";
 
 
 dotenv.config(); 
 
+const upload = multer({ dest: "uploads/" });
 const app = express();
 const PORT = process.env.PORT || 3000;
 const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
@@ -459,6 +462,26 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
     res.status(200).json('gmail was unsubscribed!');
 
 
+});
+
+app.post("/transcribe", [upload.single("file"), verifySignature], async (req, res) => {
+  try {
+
+    const filePath = req.file.path;
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(filePath),
+      model: "gpt-4o-transcribe",
+    });
+
+    fs.unlinkSync(filePath); // cleanup temporary file
+
+    res.json({ text: transcription.text });
+    
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Start server
