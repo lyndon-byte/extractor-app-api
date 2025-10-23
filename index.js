@@ -483,52 +483,42 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
-    // try {
-    //   const filePath = req.file.path;
+    const ackData = {
+      status: "accepted",
+      note: "Processing, result will be sent to webhook",
+      timestamp: Date.now(),
+    };
 
-    //   // Make sure file exists
-    //   if (!fs.existsSync(filePath)) {
-    //     return res.status(400).json({ error: "File not found" });
-    //   }
-    //   // Transcribe using OpenAI
-    //   const transcription = await openai.audio.transcriptions.create({
-    //     file: fs.createReadStream(filePath),
-    //     model: "gpt-4o-transcribe",
-    //   });
+   res.status(200).json(ackData);
 
-    //   // Clean up uploaded file (optional)
-    //   fs.unlinkSync(filePath);
+   let result = null;
 
-    //   res.json({ text: transcription.text });
+   try {
 
-    // } catch (error) {
-    //   console.error(error);
-    //   res.status(500).json({ error: error.message });
-    // }
-
-    try {
       const filePath = req.file.path;
       // Run Python script
       PythonShell.run("transcribe.py", {   
         pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
         args: [filePath] 
       }).then(messages => {
-        
-        fs.unlinkSync(filePath); // optional cleanup
 
-        const result = JSON.parse(messages.join(''));
+        fs.unlinkSync(filePath);
+        result = JSON.parse(messages.join(''));
 
-        res.status(200).json({
-            success: true,
-            language: result.language,
-            duration: result.duration,
-            text: result.text,
-            segments: result.segments,
-        });
       }).catch(err => {
         console.error(err);
         res.status(500).json({ error: "Transcription failed" });
       });
+
+      const responseData = {
+        success: true,
+        language: result.language,
+        duration: result.duration,
+        text: result.text,
+        segments: result.segments,
+      };
+
+      await axios.post(`${webhookDomain}/webhook`,responseData);
   
     } catch (error) {
       console.error(error);
