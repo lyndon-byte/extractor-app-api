@@ -11,15 +11,21 @@ import fs from "fs";
 import { File } from "node:buffer";
 
 
-
 dotenv.config(); 
-
 
 if (!globalThis.File) {
   globalThis.File = File;
 }
 
-const upload = multer({ dest: "uploads/" });
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + "-" + Date.now() + ext);
+  },
+});
+
+const upload = multer({ storage });
 const app = express();
 const PORT = process.env.PORT || 3000;
 const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
@@ -61,23 +67,18 @@ function verifySignature(req, res, next) {
     return res.status(401).json({ error: "Session expired" });
   }
 
-  // 🧩 Compute hash of the uploaded file
-  const fileBuffer = fs.readFileSync(req.file.path);
-  const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+  const expected = crypto
+  .createHmac("sha256", process.env.SHARED_SECRET)
+  .update(`${timestamp}`)
+  .digest("hex");
 
-  // 💡 Must match Laravel's payload format
-  const payloadToSign = `${timestamp}.${fileHash}`;
-
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(payloadToSign)
-    .digest("hex");
-
-  if (signature !== expectedSignature) {
+  if (signature !== expected) {
     return res.status(403).json({ error: "Invalid signature" });
   }
 
   next();
+
+  
 }
 
 function getHeader(headers, name) {
@@ -478,22 +479,23 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 });
 
-app.post("/api/transcribe", [upload.single("file"), verifySignature], async (req, res) => {
-
-  console.log("open ai key", process.env.OPENAI_API_KEY);
+app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
   try {
-
     const filePath = req.file.path;
 
+    // Make sure file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(400).json({ error: "File not found" });
+    }
+    // Transcribe using OpenAI
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model: "gpt-4o-transcribe",
     });
 
-    fs.unlinkSync(filePath); // cleanup temporary file
-
-    console.log("transcription", transcription.text);
+    // Clean up uploaded file (optional)
+    fs.unlinkSync(filePath);
 
     res.json({ text: transcription.text });
 
