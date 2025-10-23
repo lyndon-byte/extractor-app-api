@@ -487,7 +487,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       status: "accepted",
       note: "Processing, result will be sent to webhook",
       timestamp: Date.now(),
-    };
+   };
 
    res.status(200).json(ackData);
 
@@ -503,6 +503,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       }).then(messages => {
 
         fs.unlinkSync(filePath);
+
         result = JSON.parse(messages.join(''));
 
       }).catch(err => {
