@@ -505,16 +505,26 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     //   console.error(error);
     //   res.status(500).json({ error: error.message });
     // }
-    
+
     try {
       const filePath = req.file.path;
       // Run Python script
       PythonShell.run("transcribe.py", {   
         pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
         args: [filePath] 
-      }).then(results => {
+      }).then(messages => {
+        
         fs.unlinkSync(filePath); // optional cleanup
-        res.json({ text: results.join(" ") });
+
+        const result = JSON.parse(messages.join(''));
+
+        res.status(200).json({
+            success: true,
+            language: result.language,
+            duration: result.duration,
+            text: result.text,
+            segments: result.segments,
+        });
       }).catch(err => {
         console.error(err);
         res.status(500).json({ error: "Transcription failed" });
