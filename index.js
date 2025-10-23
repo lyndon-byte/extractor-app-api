@@ -483,6 +483,8 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
+    const sessionId = req.headers['x-session-id'];
+
     const ackData = {
       status: "accepted",
       note: "Processing, result will be sent to webhook",
@@ -513,6 +515,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
       const responseData = {
         success: true,
+        sessionId: sessionId,
         language: result.language,
         duration: result.duration,
         text: result.text,
