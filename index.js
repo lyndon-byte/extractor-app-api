@@ -464,7 +464,7 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 });
 
-app.post("/transcribe", [upload.single("file"), verifySignature], async (req, res) => {
+app.post("/api/transcribe", [upload.single("file"), verifySignature], async (req, res) => {
   try {
 
     const filePath = req.file.path;
@@ -476,8 +476,10 @@ app.post("/transcribe", [upload.single("file"), verifySignature], async (req, re
 
     fs.unlinkSync(filePath); // cleanup temporary file
 
+    console.log("transcription", transcription.text);
+
     res.json({ text: transcription.text });
-    
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
