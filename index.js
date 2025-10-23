@@ -10,6 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
+import { PythonShell } from "python-shell";
 
 
 dotenv.config(); 
@@ -482,28 +483,44 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
-  try {
-    const filePath = req.file.path;
+    // try {
+    //   const filePath = req.file.path;
 
-    // Make sure file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(400).json({ error: "File not found" });
+    //   // Make sure file exists
+    //   if (!fs.existsSync(filePath)) {
+    //     return res.status(400).json({ error: "File not found" });
+    //   }
+    //   // Transcribe using OpenAI
+    //   const transcription = await openai.audio.transcriptions.create({
+    //     file: fs.createReadStream(filePath),
+    //     model: "gpt-4o-transcribe",
+    //   });
+
+    //   // Clean up uploaded file (optional)
+    //   fs.unlinkSync(filePath);
+
+    //   res.json({ text: transcription.text });
+
+    // } catch (error) {
+    //   console.error(error);
+    //   res.status(500).json({ error: error.message });
+    // }
+    try {
+      const filePath = req.file.path;
+      // Run Python script
+      PythonShell.run("transcribe.py", { args: [filePath] }).then(results => {
+        fs.unlinkSync(filePath); // optional cleanup
+        res.json({ text: results.join(" ") });
+      }).catch(err => {
+        console.error(err);
+        res.status(500).json({ error: "Transcription failed" });
+      });
+  
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: error.message });
     }
-    // Transcribe using OpenAI
-    const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(filePath),
-      model: "gpt-4o-transcribe",
-    });
 
-    // Clean up uploaded file (optional)
-    fs.unlinkSync(filePath);
-
-    res.json({ text: transcription.text });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // Start server
