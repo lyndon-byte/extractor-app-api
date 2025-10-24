@@ -484,7 +484,7 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
     const sessionId = req.headers['x-session-id'];
-    const { transcriptionId } = req.body;
+    const transcriptionId = req.body.transcriptionId;
     const filePath = req.file.path;
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
