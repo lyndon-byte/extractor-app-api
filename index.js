@@ -485,8 +485,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
     const sessionId = req.headers['x-session-id'];
     const filePath = req.file.path;
-    const timestamp = Date.now().toString();
-
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
     const ackData = {
       status: "accepted",
