@@ -35,7 +35,7 @@ const webhookDomain =  process.env.WEBHOOK_DOMAIN;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
-const SCOPES = ["https://www.googleapis.com/auth/gmail.r eadonly","https://www.googleapis.com/auth/gmail.modify"];
+const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.modify"];
 
 
 const oauth2Client = new google.auth.OAuth2(
@@ -484,6 +484,7 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
     const sessionId = req.headers['x-session-id'];
+    const { transcriptionId } = req.body;
     const filePath = req.file.path;
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
@@ -532,6 +533,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     const responseData = {
       success: true,
       sessionId: sessionId,
+      transcriptionId: transcriptionId,
       language: result.language,
       duration: result.duration,
       text: result.text,
