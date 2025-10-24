@@ -485,16 +485,26 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
     const sessionId = req.headers['x-session-id'];
     const filePath = req.file.path;
+    const timestamp = Date.now().toString();
+
 
     const ackData = {
       status: "accepted",
       note: "Processing, result will be sent to webhook",
-      timestamp: Date.now(),
+      timestamp: timestamp,
    };
 
+   const ackSignature = crypto
+    .createHmac("sha256", process.env.SHARED_SECRET)
+    .update(JSON.stringify(ackData))
+    .digest("hex");
+   
+   res.setHeader("X-Signature", ackSignature)
    res.status(200).json(ackData);
 
+
    try {
+
     const messages = await PythonShell.run("transcribe.py", {
       pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
       args: [filePath],
@@ -529,8 +539,18 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       segments: result.segments,
     };
 
-    await axios.post(`${webhookDomain}/webhook`, responseData);
-    console.log(`Webhook sent for session ${sessionId}`);
+    const responseSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(`${timestamp}.${JSON.stringify(responseData)}`)
+      .digest("hex");
+
+
+    await axios.post(`${webhookDomain}/webhook`, responseData,{
+      headers: { 
+        "X-Signature": responseSignature,
+        "X-Timestamp" : timestamp 
+      }
+    });
 
   } catch (error) {
     console.error("Transcription error:", error);
