@@ -89,9 +89,9 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         output["grouped_by_speaker"] = speaker_map
         output["diarization"] = diarization_data
 
-    # Print clean JSON only
-    sys.stdout.write(json.dumps(output))
-    sys.stdout.flush()
+    
+    return output
+
 
 def ensure_16k_mono(audio_path):
     waveform, sample_rate = torchaudio.load(audio_path)
@@ -125,9 +125,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
 
-    print("✅ Python script started", file=sys.stderr)  # debug
-    transcribe_audio(audio_path, args.speaker, args.words)
-    print("✅ Transcription complete", file=sys.stderr)  # debug
+    print("✅ Python script started", file=sys.stderr)
+    result = transcribe_audio(audio_path, args.speaker, args.words)
+    print("✅ Transcription complete", file=sys.stderr)
+
+    # Send clean JSON back to Node
+    print(json.dumps(result, ensure_ascii=False))
 
 
 
