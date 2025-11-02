@@ -1,98 +1,85 @@
-
-import os
 import sys
 import json
+import argparse
 from faster_whisper import WhisperModel
 
-# Parse CLI args
-audio_path = sys.argv[1]
-enable_speaker = "--speaker" in sys.argv
-enable_word_timestamps = "--words" in sys.argv
+try:
+    from pyannote.audio import Pipeline
+except ImportError:
+    Pipeline = None  # fallback if not installed
 
-# Load model
-model = WhisperModel("base", device="cpu")
 
-# Transcribe
-segments, info = model.transcribe(
-    audio_path,
-    word_timestamps=enable_word_timestamps,
-)
+def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False):
+    model = WhisperModel("base", device="cpu")
 
-# Initial result container
-results = []
-for segment in segments:
-    seg_data = {
-        "start": round(segment.start, 2),
-        "end": round(segment.end, 2),
-        "text": segment.text.strip()
-    }
+    segments, info = model.transcribe(audio_path, word_timestamps=enable_word_timestamps)
 
-    if enable_word_timestamps and segment.words:
-        seg_data["words"] = [
-            {
-                "word": w.word,
-                "start": round(w.start, 2),
-                "end": round(w.end, 2),
-                "probability": round(w.probability, 3)
-            }
-            for w in segment.words
-        ]
+    results = []
+    for segment in segments:
+        segment_data = {
+            "start": round(segment.start, 2),
+            "end": round(segment.end, 2),
+            "text": segment.text.strip()
+        }
 
-    results.append(seg_data)
+        if enable_word_timestamps and hasattr(segment, "words"):
+            segment_data["words"] = [
+                {
+                    "word": w.word,
+                    "start": round(w.start, 2),
+                    "end": round(w.end, 2)
+                }
+                for w in segment.words
+            ]
 
-output = {
-    "language": info.language,
-    "duration": round(info.duration, 2),
-    "text": " ".join([s["text"] for s in results]),
-    "segments": results,
-}
+        results.append(segment_data)
 
-# Speaker Diarization (optional)
-if enable_speaker:
-    try:
-        from pyannote.audio import Pipeline
+    # Speaker diarization
+    speaker_map = {}
+    if enable_speaker:
+        if Pipeline is None:
+            raise ImportError("pyannote.audio is not installed. Please install it for speaker diarization.")
 
-        # Load pretrained diarization model
-        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",use_auth_token=os.getenv("HF_AUTH_TOKEN"))
+        hf_token = os.environ.get("HF_AUTH_TOKEN")
+        if not hf_token:
+            raise ValueError("Missing Hugging Face access token for diarization.")
 
-        diarization = pipeline(audio_path)
+        diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=hf_token)
+        diarization_result = diarization_pipeline(audio_path)
 
-        # Assign speakers to segments
-        speaker_segments = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
-            speaker_segments.append({
-                "start": round(turn.start, 2),
-                "end": round(turn.end, 2),
-                "speaker": speaker
-            })
-
-        # Match each Whisper segment to a speaker (based on overlap)
-        for seg in output["segments"]:
-            for spk_seg in speaker_segments:
-                if seg["start"] < spk_seg["end"] and seg["end"] > spk_seg["start"]:
-                    seg["speaker"] = spk_seg["speaker"]
-                    break
-            if "speaker" not in seg:
-                seg["speaker"] = "Unknown"
+        # Assign speaker labels to each segment
+        for turn, _, speaker in diarization_result.itertracks(yield_label=True):
+            for seg in results:
+                if seg["start"] >= turn.start and seg["end"] <= turn.end:
+                    seg["speaker"] = speaker
 
         # Group by speaker
-        grouped = {}
-        for seg in output["segments"]:
-            speaker = seg["speaker"]
-            if speaker not in grouped:
-                grouped[speaker] = []
-            grouped[speaker].append({
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": seg["text"]
-            })
+        for seg in results:
+            spk = seg.get("speaker", "unknown")
+            if spk not in speaker_map:
+                speaker_map[spk] = []
+            speaker_map[spk].append(seg)
 
-        output["grouped_by_speaker"] = grouped
+    # Combine into full output
+    output = {
+        "language": info.language,
+        "duration": round(info.duration, 2),
+        "text": " ".join([s["text"] for s in results]),
+        "segments": results,
+    }
 
-    except Exception as e:
-        output["speaker_error"] = str(e)
+    if enable_speaker:
+        output["grouped_by_speaker"] = speaker_map
 
-# Output JSON
-print(json.dumps(output, ensure_ascii=False))
+    print(json.dumps(output, ensure_ascii=False))
 
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("audio_path", help="Path to the audio file")
+    parser.add_argument("--speaker", action="store_true", help="Enable speaker diarization")
+    parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
+
+    args = parser.parse_args()
+
+    transcribe_audio(args.audio_path, args.speaker, args.words)
