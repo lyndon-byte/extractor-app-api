@@ -537,10 +537,6 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
           stderrOutput += stderr;
         }
       });
-
-      pyshell.stdout.on("data", (data) => {
-        console.log("Python stdout:", data.toString());
-      });
   
       pyshell.on("close", (exitCode) => {
         // Treat undefined or 0 exit codes as success
