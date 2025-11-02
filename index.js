@@ -539,7 +539,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
   
       // ✅ Capture Node-level errors (e.g., script not found)
       pyshell.on("error", (err) => {
-        console.error("PythonShell error:", err);
+        console.warn("PythonShell error:", err);
         reject(err);
       });
   
