@@ -44,7 +44,11 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         if not hf_token:
             raise ValueError("Missing Hugging Face access token for diarization.")
 
-        diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",token=hf_token)
+        diarization_pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization",
+            token=hf_token,
+            revision="main"
+        )
         diarization_result = diarization_pipeline(audio_path)
 
         # Assign speaker labels to each segment
