@@ -523,6 +523,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
         args,
         mode: "text",
         encoding: "utf8",
+        env: {...process.env}
       });
   
       pyshell.on("message", (message) => {
@@ -550,7 +551,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       });
     })
       .then((output) => {
-        
+
         fs.unlinkSync(filePath); // cleanup temp file
   
         let result = null;
