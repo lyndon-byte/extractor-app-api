@@ -532,7 +532,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
     } catch (e) {
 
-      console.error("Invalid JSON from Python:", messages);
+      console.error("Invalid JSON from Python:", e);
       
       return;
     }
