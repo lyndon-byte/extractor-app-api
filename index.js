@@ -511,11 +511,13 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
    try {
 
     const args = [filePath];
+
     if (enableSpeaker) args.push("--speaker");
     if (enableWordTimestamps) args.push("--words");
-  
+
+    let result = null;
+    let output = "";
     let stderrOutput = "";
-    let stdoutOutput = "";
   
     await new Promise((resolve, reject) => {
       const pyshell = new PythonShell("transcribe.py", {
@@ -526,81 +528,78 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
         env: {...process.env}
       });
   
-      pyshell.on("stdout", (data) => {
-        stdoutOutput += data.toString();
+      // ✅ Capture stdout (messages printed from Python)
+      pyshell.on("message", (message) => {
+        output += message;
       });
   
+      // ✅ Capture stderr (Python errors, warnings)
       pyshell.on("stderr", (stderr) => {
-        // Filter out known harmless warnings
-        if (!stderr.includes("[ctranslate2]")) {
-          console.warn("Python stderr:", stderr);
-          stderrOutput += stderr;
-        }
+        console.error("Python stderr:", stderr);
+        stderrOutput += stderr;
       });
   
+      // ✅ Capture Node-level errors (e.g., script not found)
+      pyshell.on("error", (err) => {
+        console.warn("PythonShell error:", err);
+        reject(err);
+      });
+  
+      // ✅ When finished
       pyshell.on("close", (exitCode) => {
-        // Treat undefined or 0 exit codes as success
-        if (exitCode !== 0 && exitCode !== null && exitCode !== undefined) {
+        // Treat only nonzero exit codes as real errors
+        if (exitCode && exitCode !== 0) {
           return reject(
             new Error(
               `Python exited with code ${exitCode}. STDERR: ${stderrOutput || "None"}`
             )
           );
         }
-        resolve(stdoutOutput);
+        resolve();
       });
-    })
-      .then((output) => {
-
-        fs.unlinkSync(filePath); // cleanup temp file
+    });
   
-        let result = null;
-        console.log("Raw Python output:", output);
-        try {
-          result = JSON.parse(output);
-        } catch (e) {
-          console.error("Invalid JSON from Python:", output);
-          return;
-        }
+    fs.unlinkSync(filePath); // cleanup temp file
   
-        if (!result) {
-          console.error("No result from transcription");
-          return;
-        }
+    // ✅ Try to parse output JSON from Python
+    try {
+      result = JSON.parse(output);
+    } catch (e) {
+      console.error("Invalid JSON from Python:", output);
+      return;
+    }
   
-        const responseData = {
-          success: true,
-          sessionId,
-          transcriptionId,
-          language: result.language,
-          duration: result.duration,
-          text: result.text,
-          segments: result.segments,
-          grouped_by_speaker: result.grouped_by_speaker || null,
-        };
+    if (!result) {
+      console.error("No result from transcription");
+      return;
+    }
   
-        // (continue your webhook send here)
-        console.log("✅ Transcription complete:", responseData);
 
-        const responseSignature = crypto
-          .createHmac("sha256", process.env.SHARED_SECRET)
-          .update(`${timestamp}.${JSON.stringify(responseData)}`)
-          .digest("hex");
+    const responseData = {
+      success: true,
+      sessionId: sessionId,
+      transcriptionId: transcriptionId,
+      language: result.language,
+      duration: result.duration,
+      text: result.text,
+      segments: result.segments,
+    };
+
+    console.log("✅ Transcription completed successfully!");
+    console.log(responseData);
+
+    const responseSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(`${timestamp}.${JSON.stringify(responseData)}`)
+      .digest("hex");
 
 
-        axios.post(`${webhookDomain}/webhook`, responseData,{
-          headers: { 
-            "X-Signature": responseSignature,
-            "X-Timestamp" : timestamp 
-          }
-        });
-
-      })
-      .catch((error) => {
-        console.error("Transcription error:", error);
-      });
-
-    
+    await axios.post(`${webhookDomain}/webhook`, responseData,{
+      headers: { 
+        "X-Signature": responseSignature,
+        "X-Timestamp" : timestamp 
+      }
+    });
 
   } catch (error) {
     console.error("Transcription error:", error);

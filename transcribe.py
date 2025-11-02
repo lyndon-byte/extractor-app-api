@@ -129,6 +129,6 @@ if __name__ == "__main__":
     print("✅ Python script started", file=sys.stderr)
     result = transcribe_audio(audio_path, args.speaker, args.words)
     print("✅ Transcription complete", file=sys.stderr)
-    print(json.dumps(result))
+    print(json.dumps(result, ensure_ascii=False))
 
 
