@@ -82,7 +82,7 @@ if enable_speaker:
         from pyannote.audio import Pipeline
 
         # Load pretrained diarization model
-        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",use_auth_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"))
+        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",use_auth_token=os.getenv("HF_SECRET"))
 
         diarization = pipeline(audio_path)
 
