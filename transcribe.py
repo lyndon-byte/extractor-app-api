@@ -16,7 +16,7 @@ logging.getLogger("pyannote").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
 def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False):
-    
+
     model = WhisperModel("base", device="cpu")
 
     segments, info = model.transcribe(audio_path, word_timestamps=enable_word_timestamps)
@@ -134,8 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
 
     args = parser.parse_args()
-    # audio_path = ensure_16k_mono(args.audio_path)
-    result = transcribe_audio(args.audio_path, args.speaker, args.words)
+    audio_path = ensure_16k_mono(args.audio_path)
+    result = transcribe_audio(audio_path, args.speaker, args.words)
     print(json.dumps(result, ensure_ascii=False))
 
 
