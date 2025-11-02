@@ -545,7 +545,8 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
   
       // ✅ When finished
       pyshell.on("close", (exitCode) => {
-        if (exitCode !== 0) {
+        // Treat only nonzero exit codes as real errors
+        if (exitCode && exitCode !== 0) {
           return reject(
             new Error(
               `Python exited with code ${exitCode}. STDERR: ${stderrOutput || "None"}`
