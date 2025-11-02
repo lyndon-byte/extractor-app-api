@@ -102,34 +102,21 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     return output
 
 
-def ensure_16k_mono(audio_path):
+def ensure_16k_mono(input_path):
+    """
+    Convert any audio to 16kHz mono WAV for pyannote compatibility.
+    Returns the path of the converted file.
+    """
+    output_path = os.path.splitext(input_path)[0] + "_16k.wav"
 
-    temp_path = f"{os.path.splitext(audio_path)[0]}_16k.wav"
+    command = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-ar", "16000", "-ac", "1", output_path
+    ]
 
-    try:
-        waveform, sample_rate = torchaudio.load(audio_path)
+    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Convert to mono
-        if waveform.shape[0] > 1:
-            waveform = torch.mean(waveform, dim=0, keepdim=True)
-
-        # Resample if not 16kHz
-        if sample_rate != 16000:
-            resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
-            waveform = resampler(waveform)
-
-        torchaudio.save(temp_path, waveform, 16000)
-        return temp_path
-
-    except Exception as e:
-        print(f"[ensure_16k_mono] torchaudio failed: {e}, falling back to ffmpeg...")
-        # Fallback to ffmpeg if torchaudio can't load
-        command = [
-            "ffmpeg", "-y", "-i", audio_path,
-            "-ar", "16000", "-ac", "1", temp_path
-        ]
-        subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return temp_path
+    return output_path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
