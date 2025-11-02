@@ -5,12 +5,7 @@ import argparse
 from faster_whisper import WhisperModel
 import torchaudio
 import torch
-
-
-try:
-    from pyannote.audio import Pipeline
-except ImportError:
-    Pipeline = None  # fallback if not installed
+from pyannote.audio import Pipeline
 
 logging.getLogger("pyannote").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -22,6 +17,10 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     segments, info = model.transcribe(audio_path, word_timestamps=enable_word_timestamps)
 
     results = []
+    speaker_diarization_data = []
+
+    hf_token = os.getenv("HF_AUTH_TOKEN")
+
     for segment in segments:
         segment_data = {
             "start": round(segment.start, 2),
@@ -40,8 +39,24 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
             ]
 
         results.append(segment_data)
+    
+    if enable_speaker:
+        
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-community-1",
+            token=hf_token)
+        
+        output = pipeline(audio_path)
 
- 
+        for turn, speaker in output.speaker_diarization:
+            speaker_diarization_data.append({
+
+                "speaker": speaker,
+                "start": round(turn.start, 2),
+                "end": round(turn.end, 2)
+
+            })
+            
     output = {
         "language": info.language,
         "duration": round(info.duration, 2),
@@ -50,13 +65,14 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     }
 
     if enable_speaker:
-        output["diarization"] = "Speaker diarization not implemented yet."
+        output["diarization"] = speaker_diarization_data
     
 
     return output
 
 
 def ensure_16k_mono(audio_path):
+
     waveform, sample_rate = torchaudio.load(audio_path)
 
     # Convert to mono
