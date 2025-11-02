@@ -1,4 +1,4 @@
-import sys
+import os
 import json
 import argparse
 from faster_whisper import WhisperModel
