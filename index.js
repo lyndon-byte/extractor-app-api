@@ -510,6 +510,10 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
    try {
 
+    const args = [filePath];
+    if (enableSpeaker) args.push("--speaker");
+    if (enableWordTimestamps) args.push("--words");
+
     let result = null;
     let output = "";
     let stderrOutput = "";
