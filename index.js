@@ -553,7 +553,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     };
 
     console.log("✅ Transcription completed successfully!");
-    console.log(responseData);
+    console.log(result);
 
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
