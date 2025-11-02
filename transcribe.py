@@ -1,12 +1,10 @@
 import os
 import json
-import sys
 import logging
 import argparse
 from faster_whisper import WhisperModel
 import torchaudio
 import torch
-import traceback
 
 
 try:
@@ -18,6 +16,7 @@ logging.getLogger("pyannote").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
 def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False):
+    
     model = WhisperModel("base", device="cpu")
 
     segments, info = model.transcribe(audio_path, word_timestamps=enable_word_timestamps)
@@ -47,38 +46,49 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     diarization_data = []
 
     if enable_speaker:
-        if Pipeline is None:
-            raise ImportError("pyannote.audio is not installed. Please install it for speaker diarization.")
 
         hf_token = os.getenv("HF_AUTH_TOKEN")
         if not hf_token:
-            raise ValueError("Missing Hugging Face access token for diarization. Please set HF_AUTH_TOKEN in your environment.")
+            raise ValueError("Missing Hugging Face access token. Set HF_AUTH_TOKEN in your environment.")
 
+        # Load pipeline
         diarization_pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-community-1",
-            token=hf_token,
+            token=hf_token
         )
+
+        # If GPU available, use it
+        if torch.cuda.is_available():
+            diarization_pipeline.to(torch.device("cuda"))
+        else:
+            diarization_pipeline.to(torch.device("cpu"))
+
+        # Run diarization
         diarization_result = diarization_pipeline(audio_path)
 
-        # Assign speaker labels
+        # Process diarization output
         for turn, _, speaker in diarization_result.itertracks(yield_label=True):
             diarization_data.append({
                 "speaker": speaker,
                 "start": round(turn.start, 2),
                 "end": round(turn.end, 2)
             })
+
+            # Tag Whisper segments with speaker label when overlap detected
             for seg in results:
                 if seg["start"] >= turn.start and seg["end"] <= turn.end:
                     seg["speaker"] = speaker
 
-        # Group by speaker
+        # Group results by speaker
         for seg in results:
             spk = seg.get("speaker", "unknown")
             if spk not in speaker_map:
                 speaker_map[spk] = []
             speaker_map[spk].append(seg)
 
-    # Combine into full output
+    # ------------------------------------------------------------
+    # 📦 FINAL OUTPUT
+    # ------------------------------------------------------------
     output = {
         "language": info.language,
         "duration": round(info.duration, 2),
@@ -89,8 +99,8 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     if enable_speaker:
         output["grouped_by_speaker"] = speaker_map
         output["diarization"] = diarization_data
-
     
+
     return output
 
 
@@ -124,11 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
 
     args = parser.parse_args()
-    audio_path = ensure_16k_mono(args.audio_path)
-
-    print("✅ Python script started", file=sys.stderr)
-    result = transcribe_audio(audio_path, args.speaker, args.words)
-    print("✅ Transcription complete", file=sys.stderr)
+    # audio_path = ensure_16k_mono(args.audio_path)
+    result = transcribe_audio(args.audio_path, args.speaker, args.words)
     print(json.dumps(result, ensure_ascii=False))
 
 
