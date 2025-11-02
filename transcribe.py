@@ -99,7 +99,8 @@ if __name__ == "__main__":
     parser.add_argument("audio_path", help="Path to the audio file")
     parser.add_argument("--speaker", action="store_true", help="Enable speaker diarization")
     parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
-    parser.add_argument("hf_key", help="model key")
+    parser.add_argument("--hf_key", help="Hugging Face API key")
+
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)

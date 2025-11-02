@@ -514,7 +514,8 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     const args = [filePath];
     if (enableSpeaker) args.push("--speaker");
     if (enableWordTimestamps) args.push("--words");
-    args.push(hfToken);
+    args.push("--hf_key", hfToken);
+
     
     const messages = await PythonShell.run("transcribe.py", {
       pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
