@@ -510,36 +510,63 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
    try {
 
-    const args = [filePath];
-    if (enableSpeaker) args.push("--speaker");
-    if (enableWordTimestamps) args.push("--words");
-
-    const messages = await PythonShell.run("transcribe.py", {
-      pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
-      args,
-      mode: "text",
-      encoding: "utf8",
-    });
-
-    fs.unlinkSync(filePath); // cleanup temp file
-
     let result = null;
-
+    let output = "";
+    let stderrOutput = "";
+  
+    await new Promise((resolve, reject) => {
+      const pyshell = new PythonShell("transcribe.py", {
+        pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
+        args,
+        mode: "text",
+        encoding: "utf8",
+      });
+  
+      // ✅ Capture stdout (messages printed from Python)
+      pyshell.on("message", (message) => {
+        output += message;
+      });
+  
+      // ✅ Capture stderr (Python errors, warnings)
+      pyshell.on("stderr", (stderr) => {
+        console.error("Python stderr:", stderr);
+        stderrOutput += stderr;
+      });
+  
+      // ✅ Capture Node-level errors (e.g., script not found)
+      pyshell.on("error", (err) => {
+        console.error("PythonShell error:", err);
+        reject(err);
+      });
+  
+      // ✅ When finished
+      pyshell.on("close", (exitCode) => {
+        if (exitCode !== 0) {
+          return reject(
+            new Error(
+              `Python exited with code ${exitCode}. STDERR: ${stderrOutput || "None"}`
+            )
+          );
+        }
+        resolve();
+      });
+    });
+  
+    fs.unlinkSync(filePath); // cleanup temp file
+  
+    // ✅ Try to parse output JSON from Python
     try {
-
-      result = JSON.parse(messages.join(""));
-
+      result = JSON.parse(output);
     } catch (e) {
-
-      console.error("Invalid JSON from Python:", messages);
-      
+      console.error("Invalid JSON from Python:", output);
       return;
     }
-
+  
     if (!result) {
       console.error("No result from transcription");
       return;
     }
+  
 
     const responseData = {
       success: true,
@@ -550,6 +577,9 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       text: result.text,
       segments: result.segments,
     };
+
+    console.log("✅ Transcription completed successfully!");
+    console.log(responseData);
 
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
