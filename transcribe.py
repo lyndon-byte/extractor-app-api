@@ -1,15 +1,18 @@
 import os
 import json
+import sys
+import logging
 import argparse
 from faster_whisper import WhisperModel
 import torchaudio
-import sys
 
 try:
     from pyannote.audio import Pipeline
 except ImportError:
     Pipeline = None  # fallback if not installed
 
+logging.getLogger("pyannote").setLevel(logging.ERROR)
+logging.getLogger("transformers").setLevel(logging.ERROR)
 
 def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False):
     model = WhisperModel("base", device="cpu")
@@ -38,23 +41,29 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
     # Speaker diarization
     speaker_map = {}
+    diarization_data = []
+
     if enable_speaker:
         if Pipeline is None:
             raise ImportError("pyannote.audio is not installed. Please install it for speaker diarization.")
 
         hf_token = os.getenv("HF_AUTH_TOKEN")
         if not hf_token:
-            raise ValueError("Missing Hugging Face access token for diarization.")
+            raise ValueError("Missing Hugging Face access token for diarization. Please set HF_AUTH_TOKEN in your environment.")
 
         diarization_pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-community-1",
-             token=hf_token,
-          
+            token=hf_token,
         )
         diarization_result = diarization_pipeline(audio_path)
 
-        # Assign speaker labels to each segment
+        # Assign speaker labels
         for turn, _, speaker in diarization_result.itertracks(yield_label=True):
+            diarization_data.append({
+                "speaker": speaker,
+                "start": round(turn.start, 2),
+                "end": round(turn.end, 2)
+            })
             for seg in results:
                 if seg["start"] >= turn.start and seg["end"] <= turn.end:
                     seg["speaker"] = speaker
@@ -76,8 +85,11 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
     if enable_speaker:
         output["grouped_by_speaker"] = speaker_map
+        output["diarization"] = diarization_data
 
-    return output
+    # Print clean JSON only
+    sys.stdout.write(json.dumps(output))
+    sys.stdout.flush()
 
 def ensure_16k_mono(audio_path):
     waveform, sample_rate = torchaudio.load(audio_path)
@@ -110,7 +122,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
-    result = transcribe_audio(audio_path, args.speaker, args.words)
+    transcribe_audio(audio_path, args.speaker, args.words)
 
-    sys.stdout.write(json.dumps(result, ensure_ascii=False))
 
