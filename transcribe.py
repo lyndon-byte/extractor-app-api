@@ -6,6 +6,25 @@ from faster_whisper import WhisperModel
 import torchaudio
 import torch
 from pyannote.audio import Pipeline
+import sys
+import traceback
+
+
+base_dir = os.path.dirname(__file__)
+
+# Redirect standard output and error to log files
+sys.stdout = open(os.path.join(base_dir, "python_stdout.log"), "a")
+sys.stderr = open(os.path.join(base_dir, "python_stderr.log"), "a")
+
+# Catch and log uncaught exceptions
+def log_exception(exc_type, exc_value, exc_traceback):
+    with open(os.path.join(base_dir, "python_error.log"), "a") as f:
+        f.write("=== PYTHON ERROR ===\n")
+        traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+        f.write("\n")
+
+sys.excepthook = log_exception
+
 
 logging.getLogger("pyannote").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -103,8 +122,12 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-    audio_path = ensure_16k_mono(args.audio_path)
-    result = transcribe_audio(audio_path, args.speaker, args.words, args.hf_key)
-    print(json.dumps(result, ensure_ascii=False))
+    try:
+        audio_path = ensure_16k_mono(args.audio_path)
+        result = transcribe_audio(audio_path, args.speaker, args.words, args.hf_key)
+        print(json.dumps(result, ensure_ascii=False))
+    except Exception as e:
+        print("Error occurred:", e)
+        raise
 
 

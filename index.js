@@ -524,33 +524,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
       encoding: "utf8",
     });
 
-    let stdoutOutput = "";
-    let stderrOutput = "";
-
-    messages.on("stderr", (stderr) => {
-      console.error("❌ PYTHON STDERR:", stderr);
-      stderrOutput += stderr;
-    });
-
-    messages.on("close", (code) => {
-      console.log(`🐍 Python process exited with code: ${code}`);
-    
-      if (stderrOutput) {
-        console.error("🔥 Full Python stderr output:\n", stderrOutput);
-      }
-    
-      if (code !== 0) {
-        console.error("Python exited with error code", code);
-      }
-    
-      try {
-        const parsed = JSON.parse(stdoutOutput);
-        console.log("✅ JSON parsed from Python:", parsed);
-      } catch (e) {
-        console.error("Invalid JSON from Python:", stdoutOutput);
-      }
-    });
-
+  
     fs.unlinkSync(filePath); // cleanup temp file
 
     let result = null;
