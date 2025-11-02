@@ -10,24 +10,19 @@ import sys
 import traceback
 
 
-logging.basicConfig(
-    filename="python_error.log",  # Creates this in same folder as the script
-    level=logging.ERROR,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+log_file = os.path.join(os.path.dirname(__file__), "python_error.log")
+logging.basicConfig(filename=log_file, level=logging.ERROR,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ------------------------------------------------------------
-# 2️⃣ Global exception hook (catches all uncaught errors)
-# ------------------------------------------------------------
 def log_unhandled_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
-        # Let Ctrl+C behave normally
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
-    logging.error("Uncaught exception",
-                  exc_info=(exc_type, exc_value, exc_traceback))
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    logging.shutdown()  # flush the buffer immediately
 
 sys.excepthook = log_unhandled_exception
+
 
 def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False, hf_token=''):
 
