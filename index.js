@@ -511,69 +511,36 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
    try {
 
     const args = [filePath];
-
     if (enableSpeaker) args.push("--speaker");
     if (enableWordTimestamps) args.push("--words");
 
-    let result = null;
-    let output = "";
-    let stderrOutput = "";
-  
-    await new Promise((resolve, reject) => {
-      const pyshell = new PythonShell("transcribe.py", {
-        pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
-        args,
-        mode: "text",
-        encoding: "utf8",
-        env: {...process.env}
-      });
-  
-      // ✅ Capture stdout (messages printed from Python)
-      pyshell.on("message", (message) => {
-        output += message;
-      });
-  
-      // ✅ Capture stderr (Python errors, warnings)
-      pyshell.on("stderr", (stderr) => {
-        console.error("Python stderr:", stderr);
-        stderrOutput += stderr;
-      });
-  
-      // ✅ Capture Node-level errors (e.g., script not found)
-      pyshell.on("error", (err) => {
-        console.warn("PythonShell error:", err);
-        reject(err);
-      });
-  
-      // ✅ When finished
-      pyshell.on("close", (exitCode) => {
-        // Treat only nonzero exit codes as real errors
-        if (exitCode && exitCode !== 0) {
-          return reject(
-            new Error(
-              `Python exited with code ${exitCode}. STDERR: ${stderrOutput || "None"}`
-            )
-          );
-        }
-        resolve();
-      });
+    const messages = await PythonShell.run("transcribe.py", {
+      pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
+      args,
+      mode: "text",
+      encoding: "utf8",
+      env: {...process.env}
     });
-  
+
     fs.unlinkSync(filePath); // cleanup temp file
-  
-    // ✅ Try to parse output JSON from Python
+
+    let result = null;
+
     try {
-      result = JSON.parse(output);
+
+      result = JSON.parse(messages.join(""));
+
     } catch (e) {
-      console.error("Invalid JSON from Python:", output);
+
+      console.error("Invalid JSON from Python:", messages);
+      
       return;
     }
-  
+
     if (!result) {
       console.error("No result from transcription");
       return;
     }
-  
 
     const responseData = {
       success: true,
