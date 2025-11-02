@@ -3,6 +3,7 @@ import json
 import argparse
 from faster_whisper import WhisperModel
 import torchaudio
+import sys
 
 try:
     from pyannote.audio import Pipeline
@@ -76,7 +77,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     if enable_speaker:
         output["grouped_by_speaker"] = speaker_map
 
-    print(json.dumps(output, ensure_ascii=False))
+    return output
 
 def ensure_16k_mono(audio_path):
     waveform, sample_rate = torchaudio.load(audio_path)
@@ -109,4 +110,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
-    transcribe_audio(audio_path, args.speaker, args.words)
+    result = transcribe_audio(audio_path, args.speaker, args.words)
+
+    sys.stdout.write(json.dumps(result, ensure_ascii=False))
+
