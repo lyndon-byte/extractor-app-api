@@ -122,7 +122,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
+    
+    print("✅ Python script started")  # Debug line 1
     result = transcribe_audio(audio_path, args.speaker, args.words)
-    print(json.dumps(result, ensure_ascii=False))  # ← THIS must exist
+    print("✅ Transcription complete")  # Debug line 2
+    print(json.dumps(result, ensure_ascii=False))
+
 
 
