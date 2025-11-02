@@ -555,6 +555,7 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
         fs.unlinkSync(filePath); // cleanup temp file
   
         let result = null;
+        console.log("Raw Python output:", output);
         try {
           result = JSON.parse(output);
         } catch (e) {
