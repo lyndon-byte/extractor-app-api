@@ -5,6 +5,8 @@ import logging
 import argparse
 from faster_whisper import WhisperModel
 import torchaudio
+import torch
+
 
 try:
     from pyannote.audio import Pipeline
@@ -122,11 +124,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
-    
-    print("✅ Python script started")  # Debug line 1
-    result = transcribe_audio(audio_path, args.speaker, args.words)
-    print("✅ Transcription complete")  # Debug line 2
-    print(json.dumps(result, ensure_ascii=False))
+
+    print("✅ Python script started", file=sys.stderr)  # debug
+    transcribe_audio(audio_path, args.speaker, args.words)
+    print("✅ Transcription complete", file=sys.stderr)  # debug
 
 
 
