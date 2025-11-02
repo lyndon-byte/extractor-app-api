@@ -40,7 +40,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         if Pipeline is None:
             raise ImportError("pyannote.audio is not installed. Please install it for speaker diarization.")
 
-        hf_token = os.environ.get("HF_AUTH_TOKEN")
+        hf_token = os.getenv("HF_AUTH_TOKEN")
         if not hf_token:
             raise ValueError("Missing Hugging Face access token for diarization.")
 
