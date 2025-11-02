@@ -26,9 +26,6 @@ def log_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = log_exception
 
 
-logging.getLogger("pyannote").setLevel(logging.ERROR)
-logging.getLogger("transformers").setLevel(logging.ERROR)
-
 def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False, hf_token=''):
 
     model = WhisperModel("base", device="cpu")
