@@ -67,7 +67,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         diarization_result = diarization_pipeline(audio_path)
 
         # Process diarization output
-        for turn, _, speaker in diarization_result.itertracks(yield_label=True):
+        for turn, speaker in diarization_result.speaker_diarization:
             diarization_data.append({
                 "speaker": speaker,
                 "start": round(turn.start, 2),
@@ -75,16 +75,16 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
             })
 
             # Tag Whisper segments with speaker label when overlap detected
-            for seg in results:
-                if seg["start"] >= turn.start and seg["end"] <= turn.end:
-                    seg["speaker"] = speaker
+            # for seg in results:
+            #     if seg["start"] >= turn.start and seg["end"] <= turn.end:
+            #         seg["speaker"] = speaker
 
         # Group results by speaker
-        for seg in results:
-            spk = seg.get("speaker", "unknown")
-            if spk not in speaker_map:
-                speaker_map[spk] = []
-            speaker_map[spk].append(seg)
+        # for seg in results:
+        #     spk = seg.get("speaker", "unknown")
+        #     if spk not in speaker_map:
+        #         speaker_map[spk] = []
+        #     speaker_map[spk].append(seg)
 
     # ------------------------------------------------------------
     # 📦 FINAL OUTPUT
@@ -97,7 +97,6 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     }
 
     if enable_speaker:
-        output["grouped_by_speaker"] = speaker_map
         output["diarization"] = diarization_data
     
 
