@@ -526,8 +526,8 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
         env: {...process.env}
       });
   
-      pyshell.on("message", (message) => {
-        stdoutOutput += message;
+      pyshell.on("stdout", (data) => {
+        stdoutOutput += data.toString();
       });
   
       pyshell.on("stderr", (stderr) => {

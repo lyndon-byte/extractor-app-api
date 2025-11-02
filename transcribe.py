@@ -6,6 +6,7 @@ import argparse
 from faster_whisper import WhisperModel
 import torchaudio
 import torch
+import traceback
 
 
 try:
@@ -128,9 +129,6 @@ if __name__ == "__main__":
     print("✅ Python script started", file=sys.stderr)
     result = transcribe_audio(audio_path, args.speaker, args.words)
     print("✅ Transcription complete", file=sys.stderr)
-
-    # Send clean JSON back to Node
-    print(json.dumps(result, ensure_ascii=False))
-
+    print(json.dumps(result))
 
 
