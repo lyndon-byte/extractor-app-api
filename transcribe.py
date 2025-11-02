@@ -46,7 +46,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
         diarization_pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization@2.1",
-            use_auth_token=hf_token,
+             token=hf_token,
           
         )
         diarization_result = diarization_pipeline(audio_path)
