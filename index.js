@@ -485,6 +485,9 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
     const sessionId = req.headers['x-session-id'];
     const transcriptionId = req.body.transcriptionId;
+    const enableSpeaker = req.body.enableSpeaker === "true";
+    const enableWordTimestamps = req.body.enableWordTimestamps === "true";
+
     const filePath = req.file.path;
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
@@ -505,9 +508,15 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
    try {
 
+    const args = [filePath];
+    if (enableSpeaker) args.push("--speaker");
+    if (enableWordTimestamps) args.push("--words");
+
     const messages = await PythonShell.run("transcribe.py", {
       pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
-      args: [filePath],
+      args,
+      mode: "text",
+      encoding: "utf8",
     });
 
     fs.unlinkSync(filePath); // cleanup temp file
