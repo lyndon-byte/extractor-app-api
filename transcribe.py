@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 from faster_whisper import WhisperModel
+import torchaudio
 
 try:
     from pyannote.audio import Pipeline
@@ -85,5 +86,5 @@ if __name__ == "__main__":
     parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
 
     args = parser.parse_args()
-
-    transcribe_audio(args.audio_path, args.speaker, args.words)
+    audio_path = ensure_16k_mono(args.audio_path)
+    transcribe_audio(audio_path, args.speaker, args.words)
