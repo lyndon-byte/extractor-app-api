@@ -28,7 +28,7 @@
 #     "segments": results
 # }, ensure_ascii=False))
 
-
+import os
 import sys
 import json
 from faster_whisper import WhisperModel
@@ -82,7 +82,7 @@ if enable_speaker:
         from pyannote.audio import Pipeline
 
         # Load pretrained diarization model
-        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",use_auth_token="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")
+        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization",use_auth_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"))
 
         diarization = pipeline(audio_path)
 
