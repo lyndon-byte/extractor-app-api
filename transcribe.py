@@ -45,9 +45,9 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
             raise ValueError("Missing Hugging Face access token for diarization.")
 
         diarization_pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization",
+            "pyannote/speaker-diarization-community-1",
             token=hf_token,
-            revision="main"
+          
         )
         diarization_result = diarization_pipeline(audio_path)
 
