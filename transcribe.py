@@ -78,6 +78,15 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
     print(json.dumps(output, ensure_ascii=False))
 
+def ensure_16k_mono(audio_path):
+    waveform, sample_rate = torchaudio.load(audio_path)
+    if sample_rate != 16000:
+        transform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
+        waveform = transform(waveform)
+    if waveform.shape[0] > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)  # convert to mono
+    torchaudio.save(audio_path, waveform, 16000)
+    return audio_path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
