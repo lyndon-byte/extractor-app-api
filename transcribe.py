@@ -57,11 +57,11 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
             token=hf_token
         )
 
-        # If GPU available, use it
-        if torch.cuda.is_available():
-            diarization_pipeline.to(torch.device("cuda"))
-        else:
-            diarization_pipeline.to(torch.device("cpu"))
+        # # If GPU available, use it
+        # if torch.cuda.is_available():
+        #     diarization_pipeline.to(torch.device("cuda"))
+        # else:
+        #     diarization_pipeline.to(torch.device("cpu"))
 
         # Run diarization
         diarization_result = diarization_pipeline(audio_path)
