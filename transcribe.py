@@ -10,7 +10,7 @@ from pyannote.audio import Pipeline
 logging.getLogger("pyannote").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
-def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False):
+def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False, hf_token=''):
 
     model = WhisperModel("base", device="cpu")
 
@@ -19,7 +19,6 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     results = []
     speaker_diarization_data = []
 
-    hf_token = os.getenv("HF_AUTH_TOKEN")
 
     for segment in segments:
         segment_data = {
@@ -41,7 +40,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         results.append(segment_data)
     
     if enable_speaker:
-        
+
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-community-1",
             token=hf_token)
@@ -100,10 +99,11 @@ if __name__ == "__main__":
     parser.add_argument("audio_path", help="Path to the audio file")
     parser.add_argument("--speaker", action="store_true", help="Enable speaker diarization")
     parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
+    parser.add_argument("hf_key", help="model key")
 
     args = parser.parse_args()
     audio_path = ensure_16k_mono(args.audio_path)
-    result = transcribe_audio(audio_path, args.speaker, args.words)
+    result = transcribe_audio(audio_path, args.speaker, args.words, args.hf_key)
     print(json.dumps(result, ensure_ascii=False))
 
 

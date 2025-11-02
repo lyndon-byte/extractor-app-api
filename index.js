@@ -37,6 +37,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
 const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.modify"];
 
+const hfToken = process.env.HF_AUTH_TOKEN;
 
 const oauth2Client = new google.auth.OAuth2(
   GOOGLE_CLIENT_ID,
@@ -513,13 +514,13 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     const args = [filePath];
     if (enableSpeaker) args.push("--speaker");
     if (enableWordTimestamps) args.push("--words");
-
+    args.push(hfToken);
+    
     const messages = await PythonShell.run("transcribe.py", {
       pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
       args,
       mode: "text",
       encoding: "utf8",
-      env: {...process.env}
     });
 
     fs.unlinkSync(filePath); // cleanup temp file
