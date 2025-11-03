@@ -6,6 +6,7 @@ from faster_whisper import WhisperModel
 import torchaudio
 import torch
 from pyannote.audio import Pipeline
+from pyannote.audio.pipelines.utils.hook import ProgressHook
 import sys
 import traceback
 
@@ -44,10 +45,9 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
                 token=hf_token
             )
 
-            # Run diarization
-            diarization_result = pipeline(audio_path)
+            with ProgressHook() as hook:
+                 diarization_result = pipeline(audio_path,hook=hook)           
 
-            # Initialize list before appending
             speaker_diarization_data = []
 
             for turn, speaker in diarization_result.itertracks(yield_label=True):
