@@ -47,7 +47,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
             speaker_diarization_data = []
 
-            for turn, speaker in diarization_result.speaker_diarization:
+            for turn, speaker in diarization_result.itertracks(yield_label=True):
                 speaker_diarization_data.append({
                     "speaker": speaker,
                     "start": turn.start,
