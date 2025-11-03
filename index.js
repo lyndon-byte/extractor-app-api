@@ -490,8 +490,6 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
     // timestamp for request signature
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    console.log("test: ",enableSpeaker)
-
     const ackData = {
         status: "accepted",
         note: "Processing, result will be sent to webhook",
