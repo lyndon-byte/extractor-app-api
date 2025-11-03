@@ -37,7 +37,6 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = "https://get-assessment.freeaireport.com/api/google-callback"; 
 const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.modify"];
 
-const hfToken = process.env.HF_AUTH_TOKEN;
 
 const oauth2Client = new google.auth.OAuth2(
   GOOGLE_CLIENT_ID,
@@ -485,20 +484,19 @@ app.post("/api/unsubscribe-gmail", async (req, res) => {
 app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, res) => {
 
     const sessionId = req.headers['x-session-id'];
-    const transcriptionId = req.body.transcriptionId;
-    const enableSpeaker = req.body.enableSpeaker === "true";
-    const enableWordTimestamps = req.body.enableWordTimestamps === "true";
-
+    const { transcriptionId, transcription_mode, timestamp_mode } = req.body;
     const filePath = req.file.path;
+
+    // timestamp for request signature
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
     console.log("test: ",enableSpeaker)
 
     const ackData = {
-      status: "accepted",
-      note: "Processing, result will be sent to webhook",
-      timestamp: timestamp,
-   };
+        status: "accepted",
+        note: "Processing, result will be sent to webhook",
+        timestamp: timestamp,
+    };
 
    const ackSignature = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
@@ -511,68 +509,67 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
    try {
 
-    const args = [filePath];
-    if (enableSpeaker) args.push("--speaker");
-    if (enableWordTimestamps) args.push("--words");
-    args.push("--hf_key", hfToken);
+      let result;
+
+      if (transcription_mode === "speakers") {
+
+        result = await openai.audio.transcriptions.create({
+          file: fs.createReadStream(filePath),
+          model: "gpt-4o-transcribe-diarize",
+          response_format: "diarized_json",
+          chunking_strategy: "auto",       
+        });
+        
+      } else {
+
+        result = await openai.audio.transcriptions.create({
+          file: fs.createReadStream(filePath),
+          model: "whisper-1",
+          response_format: "verbose_json",
+          timestamp_granularities: [timestamp_mode]
+        });
+
+      }
 
     
-    const messages = await PythonShell.run("transcribe.py", {
-      pythonPath: "/var/www/html/extractor-app-api/venv/bin/python",
-      args,
-      mode: "text",
-      encoding: "utf8",
-    });
+      const responseData = {
+        success: true,
+        sessionId: sessionId,
+        transcriptionId: transcriptionId,
+        language: result.language,
+        duration: result.duration,
+        text: result.text,
+        segments:
+        transcription_mode === "speakers"
+          ? result.speakers // diarized output
+          : timestamp_mode === "segment"
+          ? result.segments
+          : result.words,
+      };
 
-  
-    fs.unlinkSync(filePath); // cleanup temp file
+      console.log("✅ Transcription completed successfully!");
+      console.log(result);
 
-    let result = null;
-
-    try {
-
-      result = JSON.parse(messages.join(""));
-
-    } catch (e) {
-
-      console.error("Invalid JSON from Python:", e);
-      
-      return;
-    }
-
-    if (!result) {
-      console.error("No result from transcription");
-      return;
-    }
-
-    const responseData = {
-      success: true,
-      sessionId: sessionId,
-      transcriptionId: transcriptionId,
-      language: result.language,
-      duration: result.duration,
-      text: result.text,
-      segments: result.segments,
-    };
-
-    console.log("✅ Transcription completed successfully!");
-    console.log(result);
-
-    const responseSignature = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(`${timestamp}.${JSON.stringify(responseData)}`)
-      .digest("hex");
+      const responseSignature = crypto
+        .createHmac("sha256", process.env.SHARED_SECRET)
+        .update(`${timestamp}.${JSON.stringify(responseData)}`)
+        .digest("hex");
 
 
-    await axios.post(`${webhookDomain}/webhook`, responseData,{
-      headers: { 
-        "X-Signature": responseSignature,
-        "X-Timestamp" : timestamp 
-      }
-    });
+      await axios.post(`${webhookDomain}/webhook`, responseData,{
+        headers: { 
+          "X-Signature": responseSignature,
+          "X-Timestamp" : timestamp 
+        }
+      });
 
   } catch (error) {
+
     console.error("Transcription error:", error);
+
+  } finally {
+
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 
 });
