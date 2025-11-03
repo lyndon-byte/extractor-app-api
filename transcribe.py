@@ -50,8 +50,8 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
             for turn, speaker in diarization_result.speaker_diarization:
                 speaker_diarization_data.append({
                     "speaker": speaker,
-                    "start": round(turn.start, 2),
-                    "end": round(turn.end, 2),
+                    "start": turn.start,
+                    "end": turn.end,
                 })
 
 
@@ -72,7 +72,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
 
 def ensure_16k_mono(audio_path):
-    
+
     waveform, sample_rate = torchaudio.load(audio_path)
 
     # Convert to mono if stereo
@@ -85,7 +85,7 @@ def ensure_16k_mono(audio_path):
         waveform = resampler(waveform)
 
     # Define upload folder (absolute path)
-    output_dir = "/uploads"
+    output_dir = "./uploads"
     os.makedirs(output_dir, exist_ok=True)
 
     # Get base name only (no directories or extensions)
