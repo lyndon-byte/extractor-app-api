@@ -45,16 +45,6 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
          
             diarization_result = pipeline(audio_path)           
 
-            speaker_diarization_data = []
-
-            for turn, speaker in diarization_result.itertracks(yield_label=True):
-                speaker_diarization_data.append({
-                    "speaker": speaker,
-                    "start": turn.start,
-                    "end": turn.end,
-                })
-
-
     # Prepare base output
     output = {
         "language": info.language,
@@ -65,7 +55,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
     # Attach diarization data if available
     if enable_speaker:
-        output["diarization"] = speaker_diarization_data
+        output["diarization"] = diarization_result
     
 
     return output
