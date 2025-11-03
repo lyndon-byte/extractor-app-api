@@ -534,12 +534,11 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
         success: true,
         sessionId: sessionId,
         transcriptionId: transcriptionId,
-        language: result.language,
         duration: result.duration,
         text: result.text,
         segments:
         transcription_mode === "speakers"
-          ? result.speakers // diarized output
+          ? result.segments // diarized output
           : timestamp_mode === "segment"
           ? result.segments
           : result.words,
