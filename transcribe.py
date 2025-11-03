@@ -10,29 +10,13 @@ import sys
 import traceback
 
 
-log_file = os.path.join(os.path.dirname(__file__), "python_error.log")
-logging.basicConfig(filename=log_file, level=logging.ERROR,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-
-def log_unhandled_exception(exc_type, exc_value, exc_traceback):
-    if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
-    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-    logging.shutdown()  # flush the buffer immediately
-
-sys.excepthook = log_unhandled_exception
-
-
-def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False, hf_token=''):
+def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=False, hf_token=""):
 
     model = WhisperModel("base", device="cpu")
 
     segments, info = model.transcribe(audio_path, word_timestamps=enable_word_timestamps)
 
     results = []
-    speaker_diarization_data = []
-
 
     for segment in segments:
         segment_data = {
@@ -55,28 +39,26 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
     
     if enable_speaker:
 
-        try:
+            pipeline = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-community-1",
+                token=hf_token
+            )
 
-                pipeline = Pipeline.from_pretrained(
-                    "pyannote/speaker-diarization-community-1",
-                    token=hf_token)
-                
-                output = pipeline(audio_path)
+            # Run diarization
+            diarization_result = pipeline(audio_path)
 
-                for turn, speaker in output.speaker_diarization:
-                    speaker_diarization_data.append({
+            # Initialize list before appending
+            speaker_diarization_data = []
 
-                        "speaker": speaker,
-                        "start": round(turn.start, 2),
-                        "end": round(turn.end, 2)
+            for turn, speaker in diarization_result.itertracks(yield_label=True):
+                speaker_diarization_data.append({
+                    "speaker": speaker,
+                    "start": round(turn.start, 2),
+                    "end": round(turn.end, 2),
+                })
 
-                    })
 
-        except Exception as e:
-
-            logging.exception("Error in transcribe_audio")
-            return {"success": False, "error": str(e)}
-            
+    # Prepare base output
     output = {
         "language": info.language,
         "duration": round(info.duration, 2),
@@ -84,6 +66,7 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
         "segments": results,
     }
 
+    # Attach diarization data if available
     if enable_speaker:
         output["diarization"] = speaker_diarization_data
     
@@ -116,21 +99,18 @@ def ensure_16k_mono(audio_path):
     return temp_path
 
 if __name__ == "__main__":
-    try:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("audio_path", help="Path to the audio file")
-        parser.add_argument("--speaker", action="store_true", help="Enable speaker diarization")
-        parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
-        parser.add_argument("--hf_key", help="Hugging Face API key")
 
-
-        args = parser.parse_args()
     
-        audio_path = ensure_16k_mono(args.audio_path)
-        result = transcribe_audio(audio_path, args.speaker, args.words, args.hf_key)
-        print(json.dumps(result, ensure_ascii=False))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("audio_path", help="Path to the audio file")
+    parser.add_argument("--speaker", action="store_true", help="Enable speaker diarization")
+    parser.add_argument("--words", action="store_true", help="Enable word-level timestamps")
+    parser.add_argument("--hf_key", help="Hugging Face API key")
+    args = parser.parse_args()
+    
+    audio_path = ensure_16k_mono(args.audio_path)
+    result = transcribe_audio(audio_path, args.speaker, args.words, args.hf_key)
+    print(json.dumps(result, ensure_ascii=False))
 
-    except Exception as e:
-        logging.exception("Error in __main__ block")
 
 
