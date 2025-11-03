@@ -42,13 +42,12 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
                 "pyannote/speaker-diarization-community-1",
                 token=hf_token
             )
-
-            with ProgressHook() as hook:
-                 diarization_result = pipeline(audio_path,hook=hook)           
+         
+            diarization_result = pipeline(audio_path)           
 
             speaker_diarization_data = []
 
-            for turn, speaker in diarization_result.itertracks(yield_label=True):
+            for turn, speaker in diarization_result.speaker_diarization:
                 speaker_diarization_data.append({
                     "speaker": speaker,
                     "start": round(turn.start, 2),
@@ -73,21 +72,27 @@ def transcribe_audio(audio_path, enable_speaker=False, enable_word_timestamps=Fa
 
 
 def ensure_16k_mono(audio_path):
-
+    
     waveform, sample_rate = torchaudio.load(audio_path)
 
     # Convert to mono if stereo
     if waveform.shape[0] > 1:
         waveform = torch.mean(waveform, dim=0, keepdim=True)
 
-    # Resample if not 16kHz
+    # Resample to 16kHz if needed
     if sample_rate != 16000:
         resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
         waveform = resampler(waveform)
 
-    # Ensure clean file name with .wav extension only
-    base_name = os.path.splitext(audio_path)[0]
-    temp_path = f"{base_name}.wav"
+    # Define upload folder (absolute path)
+    output_dir = "/uploads"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Get base name only (no directories or extensions)
+    base_name = os.path.splitext(os.path.basename(audio_path))[0]
+
+    # New WAV file path
+    output_path = os.path.join(output_dir, f"{base_name}.wav")
 
     # Round length to nearest multiple of 160 (16kHz * 0.01s)
     total_samples = waveform.shape[1]
@@ -95,8 +100,11 @@ def ensure_16k_mono(audio_path):
     trim_length = (total_samples // expected_multiple) * expected_multiple
     waveform = waveform[:, :trim_length]
 
-    torchaudio.save(temp_path, waveform, 16000)
-    return temp_path
+    # Save the processed file
+    torchaudio.save(output_path, waveform, 16000)
+
+    # Return the full path to the new file
+    return output_path
 
 if __name__ == "__main__":
 
