@@ -315,30 +315,11 @@ app.get("/api/google-callback", async (req, res) => {
     // Set credentials
     oauth2Client.setCredentials(tokens);
 
-    // Get user email
-    // const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
-    // const userInfo = await oauth2.userinfo.get();
-    // const email = userInfo.data.email;
-
-    // // Save user tokens (use DB in real apps)
-    // users[email] = {
-    //   refresh_token: tokens.refresh_token,
-    //   access_token: tokens.access_token,
-    // };
-
-    // Start watching Gmail inbox for this user
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
     const result = await gmail.users.labels.list({ userId: "me" });
     
     const profile = await gmail.users.getProfile({ userId: "me" });
 
-    await gmail.users.watch({
-      userId: "me",
-      requestBody: {
-        topicName: "projects/database-test-edc41/topics/received-emails",
-        labelIds: ["INBOX"],
-      },
-    });
     res.json({
 
       message: "Authenticated with Gmail API",
