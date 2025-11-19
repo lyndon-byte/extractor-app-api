@@ -222,23 +222,23 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
 app.post("/api/generate-schema", verifySignature, async (req, res) => {
 
-    const { instruction, sessionId } = req.body;
+    const { instruction, authSessionId, schemaId, authType  } = req.body;
 
     let result = {};
 
-    const ackData = {
-      status: "accepted",
-      note: "Processing, result will be sent to webhook",
-      timestamp: Date.now(),
-    };
+    // const ackData = {
+    //   status: "accepted",
+    //   note: "Processing, result will be sent to webhook",
+    //   timestamp: Date.now(),
+    // };
 
-    const ackSignature = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(JSON.stringify(ackData))
-      .digest("hex");
+    // const ackSignature = crypto
+    //   .createHmac("sha256", process.env.SHARED_SECRET)
+    //   .update(JSON.stringify(ackData))
+    //   .digest("hex");
 
-    res.setHeader("X-Signature", ackSignature);
-    res.status(200).json(ackData);
+    // res.setHeader("X-Signature", ackSignature);
+    // res.status(200).json(ackData);
 
   
     try {
@@ -267,9 +267,10 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
     }
   
     const responseData = {
-      sessionId: sessionId,
+      authType,                 // ← add this
+      schemaId,
+      sessionId: authSessionId,
       status: result ? "completed" : "failed",
-      from: "express",
       response: result,
       timestamp: Date.now(),
     };
