@@ -553,6 +553,26 @@ app.post("/api/transcribe", upload.single("file"), verifySignature, async (req, 
 
 });
 
+app.post("/api/webhook-receiver", async (req, res) => {
+
+    try {
+
+      const payload = req.body; // receive the payload
+
+      console.log("Received webhook payload:", payload);
+
+      // Respond to webhook service
+      res.status(200).json({ success: true, received: payload });
+
+    } catch (error) {
+      
+      console.error("Webhook error:", error);
+      res.status(500).json({ success: false });
+    }
+
+})
+
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
