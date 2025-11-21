@@ -220,7 +220,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 });
 
 
-app.post("/api/generate-schema", verifySignature, async (req, res) => {
+app.post("/api/generate-schema", async (req, res) => {
 
     const { instruction, authSessionId, schemaId, authType  } = req.body;
 
