@@ -224,6 +224,8 @@ app.post("/api/generate-schema", verifySignature, async (req, res) => {
 
     const { instruction, authSessionId, schemaId, authType  } = req.body;
 
+    console.log("✅Request Receive");
+    
     let result = {};
 
     const ackData = {
