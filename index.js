@@ -123,74 +123,127 @@ const JsonSchema = z.object({
   }),
 });
 
-const dynamicSchemaFieldSchema  = {
-
-  "name": "dynamic_schema_fields",
+const dynamicSchemaFieldSchema = {
+  "name": "dynamic_schema_field",
+  "strict": true,
   "schema": {
     "type": "object",
     "properties": {
-      "type": "object",
-      "required": ["key", "type"],
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "The field name, e.g., 'email', 'work_experience'."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["string", "number", "boolean", "array", "object"],
-          "description": "The data type of the field."
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description of the field's purpose."
-        },
-        "format": {
-          "type": "string",
-          "enum": ["email", "date", "url"],
-          "description": "Optional format for string fields."
-        },
-        "pattern": {
-          "type": "string",
-          "description": "Optional regex pattern for string validation."
-        },
-        "items": {
-          "description": "If type is array, describes type of array items.",
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["string", "number", "boolean", "object", "array"]
-            },
-            "format": {
-              "type": "string",
-              "enum": ["email", "date", "url"]
-            },
-            "pattern": {
-              "type": "string"
-            },
-            "properties": {
-              "type": "array",
-              "description": "If array item type is object, list of nested properties.",
-              "items": {
-                "$ref": "#/schema/items"
-              }
-            }
-          }
-        },
-        "properties": {
-          "type": "array",
-          "description": "If type is object, list of nested properties.",
-          "items": {
-            "$ref": "#/schema/items"
-          }
-        }
+      "field_name": {
+        "type": "string",
+        "description": "The unique, human-readable name for the dynamic field."
       },
-      "additionalProperties": false
+      "field_type": {
+        "type": "string",
+        "description": "Type of the field value.",
+        "enum": [
+          "string",
+          "number",
+          "boolean",
+          "array",
+          "object"
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": "A description of what this field represents."
+      },
+      "constraints": {
+        "type": "object",
+        "description": "Additional constraints on this field, depending on field_type.",
+        "properties": {
+          "minLength": {
+            "type": "number",
+            "description": "Minimum string length.",
+            "minimum": 0
+          },
+          "maxLength": {
+            "type": "number",
+            "description": "Maximum string length.",
+            "minimum": 0
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Regex pattern for string fields."
+          },
+          "format": {
+            "type": "string",
+            "description": "Format constraint for string fields (e.g., email, date)."
+          },
+          "minimum": {
+            "type": "number",
+            "description": "Minimum numeric value."
+          },
+          "maximum": {
+            "type": "number",
+            "description": "Maximum numeric value."
+          },
+          "multipleOf": {
+            "type": "number",
+            "description": "Numeric value must be a multiple of this."
+          }
+        },
+        "required": [
+          "minLength",
+          "maxLength",
+          "pattern",
+          "format",
+          "minimum",
+          "maximum",
+          "multipleOf"
+        ],
+        "additionalProperties": false
+      },
+      "items": {
+        "type": "object",
+        "description": "If the field_type is array, defines the schema for array items. If not applicable, must still be present with default values.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type of array item.",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the array item."
+          }
+        },
+        "required": [
+          "type",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "properties": {
+        "type": "object",
+        "description": "If the field_type is object, defines the schema for nested object fields. Each property is a dynamic_schema_field. If not applicable, must still be present as an empty object.",
+        "properties": {
+          "Placeholder1": {
+            "type": "string",
+            "description": "Placeholder - replace with the strict field you want"
+          }
+        },
+        "required": [
+          "Placeholder1"
+        ],
+        "additionalProperties": false
+      }
     },
     "required": [
-      "key", "type", "description","pattern","items","properties"
-    ]
+      "field_name",
+      "field_type",
+      "description",
+      "constraints",
+      "items",
+      "properties"
+    ],
+    "additionalProperties": false
   }
 }
 
