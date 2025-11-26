@@ -107,21 +107,18 @@ function getBody(payload) {
 }
 
 
-const JsonSchemaProperty = z.lazy(() =>
-  z.object({
-    type: z.enum(["string", "number", "boolean", "array", "object"]),
-    format: z.string().nullable(),
-    items: z.union([JsonSchemaProperty, z.null()]).nullable(), 
-    properties: z.record(JsonSchemaProperty).nullable(),       
-    required: z.array(z.string()).nullable(),                
-  })
-);
 
-// Root JSON Schema
 const JsonSchema = z.object({
   name: z.string(),
   schema: z.object({
     type: z.literal("object"),
+    properties: z.array(z.object({
+
+      type: z.enum(["string", "number", "boolean", "array", "object"]),
+      description: z.string().nullable(),
+      format: z.string().nullable()
+      
+    })),
     required: z.array(z.string()),
   }),
 });
@@ -260,6 +257,7 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
                 - A JSON schema (pure JSON only)
 
               Rules:
+              - schema name must be appropriate and strictly seperated with underscore only.
               - Always include "type", "properties", and required fields in JSON.
               - Never return additional text, only JSON
 
