@@ -258,11 +258,7 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       
       const parsedData = completion.choices?.[0]?.message?.parsed || null;
       
-      result = {
-        name: parsedData.name,
-        schema: JSON.parse(parsedData.schema)
-      }
-      
+      result = JSON.parse(parsedData)
 
     } catch (err) {
 
