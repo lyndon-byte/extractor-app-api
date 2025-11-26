@@ -107,18 +107,17 @@ function getBody(payload) {
 }
 
 
-const JsonSchemaProperty = z.object({
-  type: z.string(),               
-  format: z.string().nullable(),  
-  items: z
-    .object({                    
-      type: z.string(),
-      format: z.string().nullable(),
-      items: z.any().nullable(),
-    })
-    .nullable(),
-});
+const JsonSchemaProperty = z.lazy(() =>
+  z.object({
+    type: z.enum(["string", "number", "boolean", "array", "object"]),
+    format: z.string().nullable(),
+    items: z.union([JsonSchemaProperty, z.null()]).nullable(), // for arrays
+    properties: z.record(JsonSchemaProperty).nullable(),       // for nested objects
+    required: z.array(z.string()).nullable(),                 // for nested objects
+  })
+);
 
+// Root JSON Schema
 const JsonSchema = z.object({
   name: z.string(),
   schema: z.object({
