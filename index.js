@@ -229,28 +229,28 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
     console.log("✅Request Receive");
     
     let result = {};
-
-    const ackData = {
-      status: "accepted",
-      note: "Processing, result will be sent to webhook",
-      timestamp: Date.now(),
-    };
-
-    const ackSignature = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(JSON.stringify(ackData))
-      .digest("hex");
-
-    res.setHeader("X-Signature", ackSignature);
-    res.status(200).json(ackData);
-
   
     try {
 
       const completion = await openai.chat.completions.parse({
         model: "gpt-4o-2024-08-06",
         messages: [
-          { role: "system", content: "Generate a JSON Schema compatible with Structured Outputs based on the user’s instructions. Exclude the $schema key. Use a lowercase, underscore-separated schema name for compatibility." },
+          { role: "system", 
+            content: `
+
+              You are an AI JSON Schema generator.
+
+              Your job is to:
+              1. Read the user's natural-language description of the data structure.
+              2. Generate:
+                - A JSON schema (pure JSON only)
+
+              Rules:
+              - Always include "type", "properties", and required fields in JSON.
+              - Output must be strict and deterministic
+
+            `
+          },
           { role: "user", content: instruction },
         ],
         response_format: zodResponseFormat(JsonSchema, "data"),
