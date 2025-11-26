@@ -127,7 +127,7 @@ const dynamicSchemaFieldSchema   = {
 
   "name": "dynamic_schema_fields",
   "schema": {
-    "type": "array",
+    "type": "object",
     "description": "List of schema field definitions for dynamic Zod generation.",
     "items": {
       "type": "object",
