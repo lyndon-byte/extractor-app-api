@@ -107,21 +107,26 @@ function getBody(payload) {
 }
 
 
+const JsonSchemaProperty = z.object({
+  type: z.string(),               
+  format: z.string().nullable(),  
+  items: z
+    .object({                    
+      type: z.string(),
+      format: z.string().nullable(),
+      items: z.any().nullable(),
+    })
+    .nullable(),
+});
+
 const JsonSchema = z.object({
   name: z.string(),
   schema: z.object({
     type: z.literal("object"),
-    properties: z.record(
-      z.object({
-        type: z.string(),
-        format: z.string().nullable(), 
-        items: z.any().nullable(),    
-      })
-    ),
+    properties: z.record(JsonSchemaProperty),
     required: z.array(z.string()),
   }),
 });
-
 
 
 
