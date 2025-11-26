@@ -114,13 +114,14 @@ const JsonSchema = z.object({
     properties: z.record(
       z.object({
         type: z.string(),
-        format: z.string().optional(),
-        items: z.any().optional(),
+        format: z.string().nullable(), 
+        items: z.any().nullable(),    
       })
     ),
     required: z.array(z.string()),
   }),
 });
+
 
 
 
