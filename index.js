@@ -123,13 +123,12 @@ const JsonSchema = z.object({
   }),
 });
 
-const dynamicSchemaFieldSchema   = {
+const dynamicSchemaFieldSchema  = {
 
   "name": "dynamic_schema_fields",
   "schema": {
     "type": "object",
-    "description": "List of schema field definitions for dynamic Zod generation.",
-    "items": {
+    "properties": {
       "type": "object",
       "required": ["key", "type"],
       "properties": {
@@ -188,7 +187,10 @@ const dynamicSchemaFieldSchema   = {
         }
       },
       "additionalProperties": false
-    }
+    },
+    "required": [
+      "key", "type", "description","pattern","items","properties"
+    ]
   }
 }
 
