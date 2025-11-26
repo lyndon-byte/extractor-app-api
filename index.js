@@ -10,7 +10,6 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import { PythonShell } from "python-shell";
 
 
 dotenv.config(); 
@@ -110,8 +109,19 @@ function getBody(payload) {
 
 const JsonSchema = z.object({
   name: z.string(),
-  schema: z.string(),
+  schema: z.object({
+    type: z.literal("object"),
+    properties: z.record(
+      z.object({
+        type: z.string(),
+        format: z.string().optional(),
+        items: z.any().optional(),
+      })
+    ),
+    required: z.array(z.string()),
+  }),
 });
+
 
 
 // Incoming webhook endpoint
@@ -247,7 +257,7 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
 
               Rules:
               - Always include "type", "properties", and required fields in JSON.
-              - Output must be strict and deterministic
+              - Never return additional text, only JSON
 
             `
           },
@@ -258,7 +268,7 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       
       const parsedData = completion.choices?.[0]?.message?.parsed || null;
       
-      result = JSON.parse(parsedData)
+      result = parsedData
 
     } catch (err) {
 
