@@ -111,9 +111,9 @@ const JsonSchemaProperty = z.lazy(() =>
   z.object({
     type: z.enum(["string", "number", "boolean", "array", "object"]),
     format: z.string().nullable(),
-    items: z.union([JsonSchemaProperty, z.null()]).nullable(), // for arrays
-    properties: z.record(JsonSchemaProperty).nullable(),       // for nested objects
-    required: z.array(z.string()).nullable(),                 // for nested objects
+    items: z.union([JsonSchemaProperty, z.null()]).nullable(), 
+    properties: z.record(JsonSchemaProperty).nullable(),       
+    required: z.array(z.string()).nullable(),                
   })
 );
 
@@ -122,7 +122,6 @@ const JsonSchema = z.object({
   name: z.string(),
   schema: z.object({
     type: z.literal("object"),
-    properties: z.record(JsonSchemaProperty),
     required: z.array(z.string()),
   }),
 });
