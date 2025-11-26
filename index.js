@@ -123,6 +123,76 @@ const JsonSchema = z.object({
   }),
 });
 
+const dynamicSchemaFieldSchema   = {
+
+  "name": "dynamic_schema_fields",
+  "schema": {
+    "type": "array",
+    "description": "List of schema field definitions for dynamic Zod generation.",
+    "items": {
+      "type": "object",
+      "required": ["key", "type"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The field name, e.g., 'email', 'work_experience'."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "array", "object"],
+          "description": "The data type of the field."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the field's purpose."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["email", "date", "url"],
+          "description": "Optional format for string fields."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Optional regex pattern for string validation."
+        },
+        "items": {
+          "description": "If type is array, describes type of array items.",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["string", "number", "boolean", "object", "array"]
+            },
+            "format": {
+              "type": "string",
+              "enum": ["email", "date", "url"]
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "properties": {
+              "type": "array",
+              "description": "If array item type is object, list of nested properties.",
+              "items": {
+                "$ref": "#/schema/items"
+              }
+            }
+          }
+        },
+        "properties": {
+          "type": "array",
+          "description": "If type is object, list of nested properties.",
+          "items": {
+            "$ref": "#/schema/items"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+
+
 
 
 // Incoming webhook endpoint
@@ -265,7 +335,10 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
           },
           { role: "user", content: instruction },
         ],
-        response_format: zodResponseFormat(JsonSchema, "data"),
+        response_format: {
+          type: 'json_schema',
+          json_schema: dynamicSchemaFieldSchema 
+        },
       });
       
       const parsedData = completion.choices?.[0]?.message?.parsed || null;
