@@ -124,7 +124,7 @@ const JsonSchema = z.object({
 });
 
 const dynamicSchemaFieldSchema = {
-  
+
   "name": "schema_field_list",
   "strict": true,
   "schema": {
@@ -155,8 +155,6 @@ const dynamicSchemaFieldSchema = {
             "description": "The data type of the field.",
             "enum": [
               "string",
-              "number",
-              "boolean",
               "array",
               "object"
             ]
@@ -164,14 +162,6 @@ const dynamicSchemaFieldSchema = {
           "description": {
             "type": "string",
             "description": "A human-readable description of the field."
-          },
-          "format": {
-            "type": "string",
-            "description": "The format of the string field, such as 'email' or 'date'.",
-            "enum": [
-              "email",
-              "date"
-            ]
           },
           "items": {
             "anyOf": [
@@ -185,8 +175,6 @@ const dynamicSchemaFieldSchema = {
                     "type": "string",
                     "enum": [
                       "string",
-                      "number",
-                      "boolean",
                       "array",
                       "object"
                     ]
@@ -212,7 +200,6 @@ const dynamicSchemaFieldSchema = {
           "key",
           "type",
           "description",
-          "format",
           "items",
           "properties"
         ],
