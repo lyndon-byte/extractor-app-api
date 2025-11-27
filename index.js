@@ -124,128 +124,104 @@ const JsonSchema = z.object({
 });
 
 const dynamicSchemaFieldSchema = {
-  "name": "dynamic_schema_field",
+  
+  "name": "schema_field_list",
   "strict": true,
   "schema": {
     "type": "object",
     "properties": {
-      "field_name": {
-        "type": "string",
-        "description": "The unique, human-readable name for the dynamic field."
-      },
-      "field_type": {
-        "type": "string",
-        "description": "Type of the field value.",
-        "enum": [
-          "string",
-          "number",
-          "boolean",
-          "array",
-          "object"
-        ]
-      },
-      "description": {
-        "type": "string",
-        "description": "A description of what this field represents."
-      },
-      "constraints": {
+      "fields": {
+        "type": "array",
+        "description": "A list of field definitions describing the desired data structure.",
+        "items": {
+          "$ref": "#/$defs/schema_field"
+        }
+      }
+    },
+    "required": [
+      "fields"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "schema_field": {
         "type": "object",
-        "description": "Additional constraints on this field, depending on field_type.",
         "properties": {
-          "minLength": {
-            "type": "number",
-            "description": "Minimum string length.",
-            "minimum": 0
-          },
-          "maxLength": {
-            "type": "number",
-            "description": "Maximum string length.",
-            "minimum": 0
-          },
-          "pattern": {
+          "key": {
             "type": "string",
-            "description": "Regex pattern for string fields."
+            "description": "The key identifying this field."
           },
-          "format": {
-            "type": "string",
-            "description": "Format constraint for string fields (e.g., email, date)."
-          },
-          "minimum": {
-            "type": "number",
-            "description": "Minimum numeric value."
-          },
-          "maximum": {
-            "type": "number",
-            "description": "Maximum numeric value."
-          },
-          "multipleOf": {
-            "type": "number",
-            "description": "Numeric value must be a multiple of this."
-          }
-        },
-        "required": [
-          "minLength",
-          "maxLength",
-          "pattern",
-          "format",
-          "minimum",
-          "maximum",
-          "multipleOf"
-        ],
-        "additionalProperties": false
-      },
-      "items": {
-        "type": "object",
-        "description": "If the field_type is array, defines the schema for array items. If not applicable, must still be present with default values.",
-        "properties": {
           "type": {
             "type": "string",
-            "description": "Type of array item.",
+            "description": "The data type of the field.",
             "enum": [
               "string",
               "number",
               "boolean",
-              "object",
-              "array"
+              "array",
+              "object"
             ]
           },
           "description": {
             "type": "string",
-            "description": "Description of the array item."
-          }
-        },
-        "required": [
-          "type",
-          "description"
-        ],
-        "additionalProperties": false
-      },
-      "properties": {
-        "type": "object",
-        "description": "If the field_type is object, defines the schema for nested object fields. Each property is a dynamic_schema_field. If not applicable, must still be present as an empty object.",
-        "properties": {
-          "Placeholder1": {
+            "description": "A human-readable description of the field."
+          },
+          "format": {
             "type": "string",
-            "description": "Placeholder - replace with the strict field you want"
+            "description": "The format of the string field, such as 'email' or 'date'.",
+            "enum": [
+              "email",
+              "date"
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/schema_field"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "If the type is 'array', defines the schema of the items."
+          },
+          "properties": {
+            "type": "array",
+            "description": "If the type is 'object', a list of sub-field definitions.",
+            "items": {
+              "$ref": "#/$defs/schema_field"
+            }
           }
         },
         "required": [
-          "Placeholder1"
+          "key",
+          "type",
+          "description",
+          "format",
+          "items",
+          "properties"
         ],
         "additionalProperties": false
       }
-    },
-    "required": [
-      "field_name",
-      "field_type",
-      "description",
-      "constraints",
-      "items",
-      "properties"
-    ],
-    "additionalProperties": false
+    }
   }
 }
+
 
 
 
