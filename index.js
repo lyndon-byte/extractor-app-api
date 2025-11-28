@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-
+import dynamicSchema from "./Schema/schema";
 
 dotenv.config(); 
 
@@ -106,110 +106,86 @@ function getBody(payload) {
   return body;
 }
 
-
-
-const JsonSchema = z.object({
-  name: z.string(),
-  schema: z.object({
-    type: z.literal("object"),
-    properties: z.array(z.object({
-
-      type: z.enum(["string", "number", "boolean", "array", "object"]),
-      description: z.string().nullable(),
-      format: z.string().nullable()
-      
-    })),
-    required: z.array(z.string()),
-  }),
-});
-
-const dynamicSchemaFieldSchema = {
-
-  "name": "schema_field_list",
-  "strict": true,
-  "schema": {
-    "type": "object",
-    "properties": {
-      "fields": {
-        "type": "array",
-        "description": "A list of field definitions describing the desired data structure.",
-        "items": {
-          "$ref": "#/$defs/schema_field"
-        }
-      }
-    },
-    "required": [
-      "fields"
-    ],
-    "additionalProperties": false,
-    "$defs": {
-      "schema_field": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "description": "The key identifying this field."
-          },
-          "type": {
-            "type": "string",
-            "description": "The data type of the field.",
-            "enum": [
-              "string",
-              "array",
-              "object"
-            ]
-          },
-          "description": {
-            "type": "string",
-            "description": "A human-readable description of the field."
-          },
-          "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/schema_field"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "string",
-                      "array",
-                      "object"
-                    ]
-                  }
-                },
-                "required": [
-                  "type"
-                ],
-                "additionalProperties": false
-              }
-            ],
-            "description": "If the type is 'array', defines the schema of the items."
-          },
-          "properties": {
-            "type": "array",
-            "description": "If the type is 'object', a list of sub-field definitions.",
-            "items": {
-              "$ref": "#/$defs/schema_field"
-            }
-          }
-        },
-        "required": [
-          "key",
-          "type",
-          "description",
-          "items",
-          "properties"
-        ],
-        "additionalProperties": false
-      }
-    }
-  }
+function generateJsonSchema(input) {
+  return {
+    name: input.schema_name,
+    strict: true,
+    schema: buildObjectSchema(input.fields)
+  };
 }
 
+/** Build the root object schema */
+function buildObjectSchema(fields) {
+  const properties = {};
+  const required = [];
 
+  fields.forEach(field => {
+    properties[field.key] = buildField(field);
+    required.push(field.key);
+  });
+
+  return {
+    type: "object",
+    properties,
+    required,
+    additionalProperties: false
+  };
+}
+
+/** Recursively build each field */
+function buildField(field) {
+  const base = {
+    type: field.type,
+    description: field.description || null
+  };
+
+  // If object → recurse
+  if (field.type === "object") {
+    const props = {};
+    const req = [];
+
+    field.properties.forEach(p => {
+      props[p.key] = buildField(p);
+      req.push(p.key);
+    });
+
+    base.properties = props;
+    base.required = req;
+    base.additionalProperties = false;
+  }
+
+  // If array → define items
+  if (field.type === "array") {
+    if (!field.items) {
+      throw new Error(`Array field '${field.key}' must have 'items'.`);
+    }
+
+    // If items.type === "object", build deeper structure
+    if (field.items.type === "object") {
+      const props = {};
+      const req = [];
+
+      field.properties.forEach(p => {
+        props[p.key] = buildField(p);
+        req.push(p.key);
+      });
+
+      base.items = {
+        type: "object",
+        properties: props,
+        required: req,
+        additionalProperties: false
+      };
+    } else {
+      // Simple arrays (string, number, boolean, etc.)
+      base.items = {
+        type: field.items.type
+      };
+    }
+  }
+
+  return base;
+}
 
 
 
@@ -355,13 +331,13 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
         ],
         response_format: {
           type: 'json_schema',
-          json_schema: dynamicSchemaFieldSchema 
+          json_schema: dynamicSchema 
         },
       });
       
       const parsedData = completion.choices?.[0]?.message?.parsed || null;
       
-      result = parsedData
+      result = generateJsonSchema(parsedData)
 
     } catch (err) {
 
