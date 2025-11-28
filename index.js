@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import dynamicSchema from "./Schema/schema";
+import dynamicSchema from "./Schema/schema.js";
 
 dotenv.config(); 
 
