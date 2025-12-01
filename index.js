@@ -192,7 +192,7 @@ function buildField(field) {
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { files, schema } = req.body;
+    const {  authType, authSessionId, extraction_requests, schema } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -213,7 +213,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       let parsedData = null;
     
       try {
-        if (file.fileType === "image") {
+        if (extraction_requests.fileType === "image") {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
             messages: [
@@ -229,7 +229,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                   { type: "text", text: "Please extract information from the image." },
                   {
                     type: "image_url",
-                    image_url: { url: `data:image/${file.fileExt};base64,${file.fileContent}` },
+                    image_url: { url: `data:image/${extraction_requests.fileExt};base64,${extraction_requests.fileContent}` },
                   },
                 ],
               },
@@ -256,7 +256,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                   Use numeric months (e.g., "January" → "1").
                 `,
               },
-              { role: "user", content: file.fileContent },
+              { role: "user", content: extraction_requests.fileContent },
             ],
             response_format: {
               type: "json_schema",
@@ -273,12 +273,12 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       }
     
       const responseData = {
-        sessionId: file.sessionId,
-        fileId: file.fileId,
-        status: parsedData ? "completed" : "failed",
-        from: "express",
-        response: parsedData,
-        timestamp: Date.now(),
+          authType,
+          sessionId: authSessionId,
+          extractionRequestId: extraction_requests.extraction_request_id,
+          status: parsedData ? "completed" : "failed",
+          response: parsedData,
+          timestamp: Date.now(),
       };
     
       console.log("✅ Sending back:", responseData);
