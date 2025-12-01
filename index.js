@@ -209,7 +209,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       let parsedData = null;
     
       try {
-        if (extraction_requests.fileType === "image") {
+        if (requestData.fileType === "image") {
           const completion = await openai.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
             messages: [
