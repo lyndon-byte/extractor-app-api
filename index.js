@@ -190,7 +190,7 @@ function buildField(field) {
 
 
 // Incoming webhook endpoint
-app.post("/api/extract-data", verifySignature, async (req, res) => {
+app.post("/api/extract-data", async (req, res) => {
 
     const {  authType, authSessionId, extraction_requests, schema } = req.body;
 
