@@ -297,6 +297,20 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
 
     const { instruction, authSessionId, schemaId, authType  } = req.body;
 
+    const ackData = {
+      status: "accepted",
+      note: "Processing, result will be sent to webhook",
+      timestamp: Date.now(),
+    };
+
+    const ackSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(ackData))
+      .digest("hex");
+  
+    res.setHeader("X-Signature", ackSignature);
+    res.status(200).json(ackData);
+
     console.log("✅Request Receive");
     
     let result = {};
