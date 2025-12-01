@@ -208,7 +208,7 @@ app.post("/api/extract-data", async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    for (const file of files) {
+    for (const extractionRequests of extraction_requests) {
 
       let parsedData = null;
     
@@ -229,7 +229,7 @@ app.post("/api/extract-data", async (req, res) => {
                   { type: "text", text: "Please extract information from the image." },
                   {
                     type: "image_url",
-                    image_url: { url: `data:image/${extraction_requests.fileExt};base64,${extraction_requests.fileContent}` },
+                    image_url: { url: `data:image/${extractionRequests.fileExt};base64,${extractionRequests.fileContent}` },
                   },
                 ],
               },
@@ -256,7 +256,7 @@ app.post("/api/extract-data", async (req, res) => {
                   Use numeric months (e.g., "January" → "1").
                 `,
               },
-              { role: "user", content: extraction_requests.fileContent },
+              { role: "user", content: extractionRequests.fileContent },
             ],
             response_format: {
               type: "json_schema",
@@ -275,7 +275,7 @@ app.post("/api/extract-data", async (req, res) => {
       const responseData = {
           authType,
           sessionId: authSessionId,
-          extractionRequestId: extraction_requests.extraction_request_id,
+          extractionRequestId: extractionRequests.extraction_request_id,
           status: parsedData ? "completed" : "failed",
           response: parsedData,
           timestamp: Date.now(),
