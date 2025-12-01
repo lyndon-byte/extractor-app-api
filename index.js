@@ -188,7 +188,7 @@ function buildField(field) {
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { authType, authSessionId, extraction_requests, schema } = req.verifiedBody;
+    const { authType, authSessionId, extraction_request, schema } = req.verifiedBody;
 
     const ackData = {
       status: "accepted",
@@ -204,7 +204,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    for (const extractionRequests of extraction_requests) {
+    for (const requestData of extraction_request) {
 
       let parsedData = null;
     
@@ -225,7 +225,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                   { type: "text", text: "Please extract information from the image." },
                   {
                     type: "image_url",
-                    image_url: { url: `data:image/${extractionRequests.fileExt};base64,${extractionRequests.fileContent}` },
+                    image_url: { url: `data:image/${requestData.fileExt};base64,${requestData.fileContent}` },
                   },
                 ],
               },
@@ -252,7 +252,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                   Use numeric months (e.g., "January" → "1").
                 `,
               },
-              { role: "user", content: extractionRequests.fileContent },
+              { role: "user", content: requestData.fileContent },
             ],
             response_format: {
               type: "json_schema",
@@ -271,7 +271,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       const responseData = {
           authType,
           sessionId: authSessionId,
-          extractionRequestId: extractionRequests.extraction_request_id,
+          extractionRequestId: requestData.extraction_request_id,
           status: parsedData ? "completed" : "failed",
           response: parsedData,
           timestamp: Date.now(),
