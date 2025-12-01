@@ -55,32 +55,28 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function verifySignature(req, res, next) {
 
-    const signature = req.headers["x-signature"];
-    const timestamp = req.headers["x-timestamp"];
+  const signature = req.headers["x-signature"];
+  const timestamp = req.headers["x-timestamp"];
 
-    if (!signature || !timestamp) {
-      return res.status(400).json({ error: "Invalid session" });
-    }
+  if (!signature || !timestamp) {
+    return res.status(400).json({ error: "Missing headers" });
+  }
 
-    // Prevent replay attacks (5 minutes)
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - parseInt(timestamp)) > 300) {
-      return res.status(401).json({ error: "Session expired" });
-    }
+  const rawBody = req.rawBody; // exact JSON string from Laravel
 
-    // IMPORTANT: Must match Laravel payload
-    const rawBody = JSON.stringify(req.body);
+  const expected = crypto
+    .createHmac("sha256", process.env.SHARED_SECRET)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
 
-    const expected = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(`${timestamp}.${rawBody}`)
-      .digest("hex");
+  if (expected !== signature) {
+    return res.status(403).json({ error: "Invalid signature" });
+  }
 
-    if (signature !== expected) {
-      return res.status(403).json({ error: "Invalid signature" });
-    }
+  // Safe: now parsed AFTER signature check
+  req.verifiedBody = JSON.parse(rawBody);
 
-    next();
+  next();
 }
 
 
@@ -190,9 +186,9 @@ function buildField(field) {
 
 
 // Incoming webhook endpoint
-app.post("/api/extract-data", async (req, res) => {
+app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const {  authType, authSessionId, extraction_requests, schema } = req.body;
+    const { authType, authSessionId, extraction_requests, schema } = req.verifiedBody;
 
     const ackData = {
       status: "accepted",
