@@ -314,6 +314,8 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
     console.log("✅Request Receive");
     
     let result = {};
+
+    let suggestedFolderName = "";
   
     try {
 
@@ -349,6 +351,8 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       
       result = generateJsonSchema(parsedData)
 
+      suggestedFolderName = parsedData.folder_name
+
     } catch (err) {
 
       console.error("❌ OpenAI error:", err.response?.data || err.message || err);
@@ -356,8 +360,9 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
     }
   
     const responseData = {
-      authType,                 // ← add this
+      authType,                
       schemaId,
+      suggestedFolderName,
       sessionId: authSessionId,
       status: result ? "completed" : "failed",
       response: result,

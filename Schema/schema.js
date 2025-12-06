@@ -5,6 +5,10 @@ const dynamicSchema = {
     "schema": {
       "type": "object",
       "properties": {
+        "folder_name": {
+          "type": "string",
+          "description": "A sanitized, human-readable folder name that reflects the content category (e.g., 'resumes', 'invoices'). Allowed characters: a–z, A–Z, 0–9, underscores (_), and hyphens (-). No spaces, symbols, or accented characters."
+        },
         "schema_name": {
           "type": "string",
           "description": "name or title of the data",
@@ -18,6 +22,7 @@ const dynamicSchema = {
         }
       },
       "required": [
+        "folder_name",
         "schema_name",
         "fields"
       ],
