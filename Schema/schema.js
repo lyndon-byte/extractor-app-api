@@ -9,6 +9,10 @@ const dynamicSchema = {
           "type": "string",
           "description": "A sanitized, human-readable folder name that reflects the content category (e.g., 'resumes', 'invoices'). Allowed characters: a–z, A–Z, 0–9, underscores (_), and hyphens (-). No spaces, symbols, or accented characters."
         },
+        "accepted_files": {
+          "type": "array",
+          "description": "List of file types that are allowed and relevant to this data schema."
+        },
         "schema_name": {
           "type": "string",
           "description": "name or title of the data",

@@ -184,11 +184,188 @@ function buildField(field) {
 }
 
 
+const imageSchema = z.object({
+  text: z.string(),
+  documentType: z.string(),
+});
+
+const textSchema = z.object({
+  documentType: z.string(),
+});
+
+async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
+
+  let result = {};
+  let suggestedFolderName = "";
+  let acceptedFiles = [];
+
+  try {
+    const completion = await openai.chat.completions.parse({
+      model: "gpt-4o-2024-08-06",
+      messages: [
+        {
+          role: "system",
+          content: `
+            You are an AI JSON Schema generator.
+
+            Your job:
+            1. Analyze the document type.
+            2. Generate a valid JSON schema.
+
+            Rules:
+            - Only output JSON.
+            - Must contain: type, properties, required.
+            - Use snake_case for all keys.
+          `
+        },
+        { role: "user", content: docType },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: dynamicSchema 
+      },
+    });
+
+    const parsed = completion.choices?.[0]?.message?.parsed;
+
+    result = generateJsonSchema(parsed)
+    suggestedFolderName = parsed.folder_name
+    acceptedFiles = parsed.accepted_files
+  
+  } catch (err) {
+    console.error("AI Schema Generator Error:", err.response?.data || err);
+    return null;
+  }
+
+  const responseData = {
+    authType,                
+    schemaId,
+    suggestedFolderName,
+    acceptedFiles,
+    sessionId: authSessionId,
+    status: result ? "completed" : "failed",
+    response: result,
+    timestamp: Date.now(),
+  };
+
+  const responseSignature = crypto
+    .createHmac("sha256", process.env.SHARED_SECRET)
+    .update(JSON.stringify(responseData))
+    .digest("hex");
+
+  await axios.post(`${webhookDomain}/receive-generated-schema`, responseData, {
+    headers: { "X-Signature": responseSignature },
+  });
+
+  return result;
+}
+
+async function analyzeFile(requestData,orgId,authType,authSessionId) {
+
+  let extractedText = null;
+  let extractedMeta = null;
+
+  if (requestData.fileType === "image") {
+
+    const completion = await openai.chat.completions.parse({
+      model: "gpt-4o-2024-08-06",
+      messages: [
+        {
+          role: "system",
+          content: `
+            Extract text from the image and determine its document type.
+            Normalize dates:
+            - Month + Year → MM/YYYY
+            - Full date → MM/DD/YYYY
+            - Convert month names to numeric values.
+          `,
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract text and determine the document type." },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/${requestData.fileExt};base64,${requestData.fileContent}`,
+              },
+            },
+          ],
+        },
+      ],
+      response_format: zodResponseFormat(imageSchema, "data"),
+    });
+
+    const parsed = completion.choices?.[0]?.message?.parsed;
+
+    extractedText = parsed?.text || "";
+    extractedMeta = parsed;
+  }
+
+  if (requestData.fileType === "typical") {
+    const completion = await openai.chat.completions.parse({
+      model: "gpt-4o-2024-08-06",
+      messages: [
+        {
+          role: "system",
+          content: `
+            Determine the document type from the text.
+            Normalize dates:
+            - Month + Year → MM/YYYY
+            - Full date → MM/DD/YYYY.
+          `,
+        },
+        { role: "user", content: requestData.fileContent },
+      ],
+      response_format: zodResponseFormat(textSchema, "data"),
+    });
+
+    const parsed = completion.choices?.[0]?.message?.parsed;
+
+    extractedText = requestData.fileContent;
+    extractedMeta = parsed;
+  }
+
+ 
+  const requestSignature = crypto
+    .createHmac("sha256", process.env.SHARED_SECRET)
+    .update(JSON.stringify(extractedMeta))
+    .digest("hex");
+
+
+  const { data: response } = await axios.post(
+    `${webhookDomain}/find-schema`,
+    { result: extractedMeta, orgId },
+    {
+      headers: {
+        "X-Signature": requestSignature,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  let foundSchema = response?.schema;
+
+  if (foundSchema?.status === "processing") {
+    foundSchema = await generateSchemaFromAI(foundSchema.name,foundSchema.id,authType,authSessionId);
+  } else {
+    foundSchema = foundSchema?.schema;
+  }
+
+  return {
+    content: extractedText,
+    schema: foundSchema,
+  };
+}
+
+
+
+
 
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { authType, authSessionId, extraction_request, schema } = req.verifiedBody;
+    const { authType, authSessionId, extraction_request, orgId } = req.verifiedBody;
 
     const ackData = {
       status: "accepted",
@@ -206,62 +383,36 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     for (const requestData of extraction_request) {
 
+      const { content,schema } = await analyzeFile(requestData,orgId,authType,authSessionId)
+
       let parsedData = null;
     
       try {
-        if (requestData.fileType === "image") {
-          const completion = await openai.chat.completions.parse({
-            model: "gpt-4o-2024-08-06",
-            messages: [
-              { role: "system", content: `Extract information on the image.  
+
+        const completion = await openai.chat.completions.parse({
+          model: "gpt-4o-2024-08-06",
+          messages: [
+            {
+              role: "system",
+              content: `
+                Extract the information. 
                 If any dates are present, normalize them into a valid date format:
                 - Month + Year → MM/YYYY (e.g., "Aug 2022" → "08/2022").
                 - Full date → MM/DD/YYYY if day is available.
-                Use numeric months (e.g., "January" → "1").` 
-              },
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: "Please extract information from the image." },
-                  {
-                    type: "image_url",
-                    image_url: { url: `data:image/${requestData.fileExt};base64,${requestData.fileContent}` },
-                  },
-                ],
-              },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: schema
+                Use numeric months (e.g., "January" → "1").
+              `,
             },
-          });
-    
-          parsedData = completion.choices?.[0]?.message?.parsed || null;
+            { role: "user", content: content },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: schema
+          },
+        });
+  
+        parsedData = completion.choices?.[0]?.message?.parsed || null;
 
-        } else {
-          const completion = await openai.chat.completions.parse({
-            model: "gpt-4o-2024-08-06",
-            messages: [
-              {
-                role: "system",
-                content: `
-                  Extract the information. 
-                  If any dates are present, normalize them into a valid date format:
-                  - Month + Year → MM/YYYY (e.g., "Aug 2022" → "08/2022").
-                  - Full date → MM/DD/YYYY if day is available.
-                  Use numeric months (e.g., "January" → "1").
-                `,
-              },
-              { role: "user", content: requestData.fileContent },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: schema
-            },
-          });
-    
-          parsedData = completion.choices?.[0]?.message?.parsed || null;
-        }
+
       } catch (err) {
 
         console.error("❌ OpenAI error:", err.response?.data || err.message || err);
@@ -269,12 +420,14 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       }
     
       const responseData = {
-          authType,
-          sessionId: authSessionId,
-          extractionRequestId: requestData.extraction_request_id,
-          status: parsedData ? "completed" : "failed",
-          response: parsedData,
-          timestamp: Date.now(),
+
+        authType,
+        sessionId: authSessionId,
+        extractionRequestId: requestData.extraction_request_id,
+        status: parsedData ? "completed" : "failed",
+        response: parsedData,
+        timestamp: Date.now(),
+
       };
     
       console.log("✅ Sending back:", responseData);
