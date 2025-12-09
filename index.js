@@ -381,6 +381,8 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const { authType, authSessionId, extraction_request, orgId } = req.verifiedBody;
 
+    let schemaId;
+
     const ackData = {
       status: "accepted",
       note: "Processing, result will be sent to webhook",
@@ -398,6 +400,8 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
     for (const requestData of extraction_request) {
 
       const { content, schema, schemaId } = await analyzeFile(requestData,orgId,authType,authSessionId)
+
+      schemaId = schemaId
 
       let parsedData = null;
     
