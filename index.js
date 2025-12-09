@@ -326,19 +326,20 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
     extractedMeta = parsed;
   }
 
- 
+  const payload = { result: extractedMeta, orgId };
   const requestSignature = crypto
     .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(JSON.stringify(extractedMeta))
+    .update(JSON.stringify(payload))
     .digest("hex");
 
 
   const { data: response } = await axios.post(
     `${webhookDomain}/find-schema`,
-    { result: extractedMeta, orgId },
+    payload,
     {
       headers: {
         "X-Signature": requestSignature,
+        "Content-Type": "application/json",
       },
     }
   );
