@@ -339,7 +339,6 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
     {
       headers: {
         "X-Signature": requestSignature,
-        "Content-Type": "application/json",
       },
     }
   );
