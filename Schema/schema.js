@@ -31,6 +31,7 @@ const dynamicSchema = {
       },
       "required": [
         "folder_name",
+        "accepted_files",
         "schema_name",
         "fields"
       ],
