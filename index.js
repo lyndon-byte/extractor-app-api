@@ -300,6 +300,7 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
 
     extractedText = parsed?.text || "";
     extractedMeta = parsed;
+
   }
 
   if (requestData.fileType === "typical") {

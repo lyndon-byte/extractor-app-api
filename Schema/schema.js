@@ -11,7 +11,11 @@ const dynamicSchema = {
         },
         "accepted_files": {
           "type": "array",
-          "description": "List of file types that are allowed and relevant to this data schema."
+          "description": "List of documents that are allowed and relevant to this data schema.",
+          "items": {
+            "type": "string",
+            "description": "A single document, e.g., 'resume', 'invoice', 'cv'."
+           }
         },
         "schema_name": {
           "type": "string",
