@@ -206,17 +206,29 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
         {
           role: "system",
           content: `
-            You are an AI JSON Schema generator.
+            You are an AI JSON Schema Generator.
 
-            Your job:
-            1. Analyze the document type.
-            2. Generate a valid JSON schema.
+            Your mission:
+            1. Analyze the given document type.
+            2. Generate the most complete and comprehensive JSON Schema possible.
+            3. Include every field that may reasonably appear in any version or variation of that document type.
+            
+            STRICT RULES:
 
-            Rules:
-            - Only output JSON.
-            - Must contain: type, properties, required.
-            - Use snake_case for all keys.
-          `
+            - All field names must use snake_case.
+            - Infer all fields that CAN exist, not only fields present in a sample.
+            - Think broadly: include all possible variations that may appear across different formats.
+            - Each property must have an appropriate type (string, number, boolean, object, array).
+            - Include nested objects where applicable (e.g., addresses, work_history, education, items, totals).
+            - For resumes: include *all possible fields*, including personal info, work history, education, certifications, skills, links, social profiles, summaries, projects, achievements, etc.
+            - For invoices: include header, seller, buyer, items, taxes, totals, dates, payment info, metadata.
+            - For IDs: include personal info, document metadata, issuing authority details, etc.
+            - For receipts: include store details, items, totals, taxes, payment method, metadata.
+            
+            ADDITIONAL REQUIREMENTS:
+            - Schema must be fully valid and strictly formatted.
+            - Required fields should list the MOST universally expected fields for the document type.
+            `
         },
         { role: "user", content: docType },
       ],
@@ -257,7 +269,7 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
     headers: { "X-Signature": responseSignature },
   });
 
-  return result;
+  return { schema: result };
 }
 
 async function analyzeFile(requestData,orgId,authType,authSessionId) {
@@ -348,14 +360,15 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
   let foundSchema = response?.schema;
 
   if (foundSchema?.status === "processing") {
+
     foundSchema = await generateSchemaFromAI(foundSchema.name,foundSchema.id,authType,authSessionId);
-  } else {
-    foundSchema = foundSchema?.schema;
-  }
+
+  } 
 
   return {
     content: extractedText,
-    schema: foundSchema,
+    schema: foundSchema.schema,
+    schemaId: foundSchema.id,
   };
 }
 
@@ -384,7 +397,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     for (const requestData of extraction_request) {
 
-      const { content,schema } = await analyzeFile(requestData,orgId,authType,authSessionId)
+      const { content, schema, schemaId } = await analyzeFile(requestData,orgId,authType,authSessionId)
 
       let parsedData = null;
     
@@ -423,6 +436,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       const responseData = {
 
         authType,
+        schemaId,
         sessionId: authSessionId,
         extractionRequestId: requestData.extraction_request_id,
         status: parsedData ? "completed" : "failed",
