@@ -214,7 +214,7 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
             3. Include every field that may reasonably appear in any version or variation of that document type.
             
             STRICT RULES:
-
+            - schema name must use snake_case.
             - All field names must use snake_case.
             - Infer all fields that CAN exist, not only fields present in a sample.
             - Think broadly: include all possible variations that may appear across different formats.
@@ -399,9 +399,9 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     for (const requestData of extraction_request) {
 
-      const { content, schema, schemaId } = await analyzeFile(requestData,orgId,authType,authSessionId)
+      const { content, schema, schemaId: returnedSchemaId  } = await analyzeFile(requestData,orgId,authType,authSessionId)
 
-      schemaId = schemaId
+      schemaId = returnedSchemaId
 
       let parsedData = null;
     
