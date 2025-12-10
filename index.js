@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import dynamicSchema from "./Schema/schema.js";
+import {dynamicSchema,imageSchema,textSchema} from "./Schema/schema.js";
 
 dotenv.config(); 
 
@@ -183,15 +183,6 @@ function buildField(field) {
   return base;
 }
 
-
-const imageSchema = z.object({
-  text: z.string(),
-  documentType: z.string(),
-});
-
-const textSchema = z.object({
-  documentType: z.string(),
-});
 
 async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
 
