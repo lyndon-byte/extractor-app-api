@@ -269,7 +269,7 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
     headers: { "X-Signature": responseSignature },
   });
 
-  return { schema: result };
+  return { schema: result , id: schemaId};
 }
 
 async function analyzeFile(requestData,orgId,authType,authSessionId) {
