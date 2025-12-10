@@ -115,7 +115,7 @@ const dynamicSchema = {
           "description":  "A single-word, lowercase label that identifies the document in the image. Examples: 'resume', 'cv'. Select whichever is most accurate." 
         },
         "text": {
-          "type": "array",
+          "type": "string",
           "description": "A list of visible text segments extracted from the image. Include only the readable text that appears on the document."
         }
       },
