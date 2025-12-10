@@ -296,7 +296,10 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
           ],
         },
       ],
-      response_format: zodResponseFormat(imageSchema, "data"),
+      response_format: {
+        type: "json_schema",
+        json_schema: imageSchema
+      },
     });
 
     const parsed = completion.choices?.[0]?.message?.parsed;
@@ -321,7 +324,10 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
         },
         { role: "user", content: requestData.fileContent },
       ],
-      response_format: zodResponseFormat(textSchema, "data"),
+      response_format: {
+        type: "json_schema",
+        json_schema: textSchema
+      },
     });
 
     const parsed = completion.choices?.[0]?.message?.parsed;
