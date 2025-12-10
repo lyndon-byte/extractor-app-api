@@ -365,6 +365,8 @@ async function analyzeFile(requestData,orgId,authType,authSessionId) {
 
   } 
 
+  console.log("FOUND SCHEMA ID:", foundSchema.id);
+
   return {
     content: extractedText,
     schema: foundSchema.schema,
