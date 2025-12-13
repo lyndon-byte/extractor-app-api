@@ -3,7 +3,7 @@ import axios from "axios";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import crypto from "crypto"; // built-in
-import { zodResponseFormat } from "openai/helpers/zod";
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { google } from "googleapis";
 import multer from "multer";
@@ -263,112 +263,161 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
   return { schema: result , id: schemaId};
 }
 
-async function analyzeFile(requestData,orgId,authType,authSessionId) {
+async function analyzeFile(
+
+  authType, 
+  authSessionId, 
+  fileId, 
+  fileType,
+  fileExt,
+  fileContent,
+  vectorStoreId,
+  orgId  
+
+) {
 
   let extractedText = null;
   let extractedMeta = null;
 
-  if (requestData.fileType === "image") {
+  if (fileType === "image") {
 
-    const completion = await openai.chat.completions.parse({
+    const response = await openai.responses.parse({
+
       model: "gpt-4o-2024-08-06",
-      messages: [
+      input: [
         {
           role: "system",
           content: `
-            Extract text from the image and determine its document type.
-            Normalize dates:
+
+            Extract all visible and readable text from the provided image.  
+            Identify the document type based on the extracted content.
+            e.g., 'resume', 'invoice'.
+
+            After determining the document type:
+
+            - Locate and select the appropriate schema by searching for the schema that best matches the identified document type.
+            - If a matching schema is found, return "schema_found": true.
+            - If no matching schema is found, return "schema_found": false.
+            Apply normalization rules to all detected dates:
+
             - Month + Year → MM/YYYY
-            - Full date → MM/DD/YYYY
-            - Convert month names to numeric values.
+            - Full dates → MM/DD/YYYY
+            - Convert any month names (full or abbreviated) into their numeric equivalents.
+            
+            Return only the structured result according to the schema identified.
+            
           `,
         },
         {
           role: "user",
           content: [
-            { type: "text", text: "Extract text and determine the document type." },
+            {type: "input_text", text: "Extract text, determine the document type and get schema" },
             {
-              type: "image_url",
-              image_url: {
-                url: `data:image/${requestData.fileExt};base64,${requestData.fileContent}`,
-              },
+              type: "input_image",
+              image_url: `data:image/${fileExt};base64,${fileContent}`,
             },
           ],
         },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: imageSchema
-      },
+      tools: [
+        {
+          type: "file_search", 
+          vector_store_ids: [vectorStoreId],
+        }
+      ],
+      text: {
+        format: zodTextFormat(imageSchema,"data")
+      }
     });
 
-    const parsed = completion.choices?.[0]?.message?.parsed;
-
-    extractedText = parsed?.text || "";
-    extractedMeta = parsed;
-
+    extractedMeta = response.output_parsed
+    extractedText = extractedMeta.text
   }
 
-  if (requestData.fileType === "typical") {
-    const completion = await openai.chat.completions.parse({
+  if (fileType === "typical") {
+
+    
+    const response = await openai.responses.parse({
+
       model: "gpt-4o-2024-08-06",
-      messages: [
+      input: [
         {
           role: "system",
           content: `
-            Determine the document type from the text.
-            Normalize dates:
+
+            Analyze the provided content.  
+            Identify the document type based on the content.
+            e.g., 'resume', 'invoice'.
+
+            After determining the document type:
+
+            - Locate and select the appropriate schema by searching for the schema that best matches the identified document type.
+            - If a matching schema is found, return "schema_found": true.
+            - If no matching schema is found, return "schema_found": false.
+            Apply normalization rules to all detected dates:
+
             - Month + Year → MM/YYYY
-            - Full date → MM/DD/YYYY.
+            - Full dates → MM/DD/YYYY
+            - Convert any month names (full or abbreviated) into their numeric equivalents.
+            
+            Return only the structured result according to the schema identified.
+            
           `,
         },
-        { role: "user", content: requestData.fileContent },
+        {
+          role: "user",
+          content: fileContent
+        },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: textSchema
-      },
+      tools: [
+        {
+          type: "file_search", 
+          vector_store_ids: [vectorStoreId],
+        }
+      ],
+      text: {
+        format: zodTextFormat(textSchema,"data")
+      }
     });
 
-    const parsed = completion.choices?.[0]?.message?.parsed;
-
-    extractedText = requestData.fileContent;
-    extractedMeta = parsed;
+    extractedMeta = response.output_parsed;
+    extractedText = fileContent
   }
 
-  const payload = { result: extractedMeta, orgId };
-  const requestSignature = crypto
-    .createHmac("sha256", process.env.SHARED_SECRET)
-    .update(JSON.stringify(payload))
-    .digest("hex");
+  if(!extractedMeta.schema_found){
+
+       // logic to create and save schema
+
+      // const payload = { result: extractedMeta, orgId };
+      // const requestSignature = crypto
+      //   .createHmac("sha256", process.env.SHARED_SECRET)
+      //   .update(JSON.stringify(payload))
+      //   .digest("hex");
 
 
-  const { data: response } = await axios.post(
-    `${webhookDomain}/find-schema`,
-    payload,
-    {
-      headers: {
-        "X-Signature": requestSignature,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+      // const { data: response } = await axios.post(
+      //   `${webhookDomain}/find-schema`,
+      //   payload,
+      //   {
+      //     headers: {
+      //       "X-Signature": requestSignature,
+      //       "Content-Type": "application/json",
+      //     },
+      //   }
+      // );
 
-  let foundSchema = response?.schema;
-
-  if (foundSchema?.status === "processing") {
-
-    foundSchema = await generateSchemaFromAI(foundSchema.name,foundSchema.id,authType,authSessionId);
+      // foundSchema = await generateSchemaFromAI(foundSchema.name,foundSchema.id,authType,authSessionId);
 
   } 
 
-  console.log("FOUND SCHEMA ID:", foundSchema.id);
-
   return {
+
     content: extractedText,
-    schema: foundSchema.schema,
-    schemaId: foundSchema.id,
+    schemaId: extractedMeta.schema_id,
+    docType: extractedMeta.document_type
+
   };
+
 }
 
 
@@ -411,7 +460,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
           messages: [
             {
               role: "system",
-              content: `
+              content: `  
                 Extract the information. 
                 If any dates are present, normalize them into a valid date format:
                 - Month + Year → MM/YYYY (e.g., "Aug 2022" → "08/2022").
@@ -437,7 +486,6 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
       }
     
       const responseData = {
-
         authType,
         schemaId,
         sessionId: authSessionId,
@@ -445,7 +493,6 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
         status: parsedData ? "completed" : "failed",
         response: parsedData,
         timestamp: Date.now(),
-
       };
     
       console.log("✅ Sending back:", responseData);
@@ -554,6 +601,74 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
 
   
 });
+
+app.post("/api/analyze-file-for-schema", verifySignature, async (req, res) => {
+
+    const { 
+
+      authType, 
+      authSessionId, 
+      fileId, 
+      fileType,
+      fileExt,
+      fileContent,
+      vectorStoreId,
+      orgId  
+
+    } = req.body;
+    
+    const ackData = {
+      status: "accepted",
+      note: "Processing, result will be sent to webhook",
+      timestamp: Date.now(),
+    };
+
+    const ackSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(ackData))
+      .digest("hex");
+
+    res.setHeader("X-Signature", ackSignature);
+    res.status(200).json(ackData);
+
+    const { content, schemaId: returnedSchemaId, docType  } = await analyzeFile(
+      
+        authType, 
+        authSessionId, 
+        fileId, 
+        fileType,
+        fileExt,
+        fileContent,
+        vectorStoreId,
+        orgId  
+      
+    )
+
+    const responseData = {
+
+      authType,
+      fileId,
+      orgId,
+      sessionId: authSessionId,
+      response: {
+        content,
+        schemaId: returnedSchemaId,
+        docType
+      },
+      timestamp: Date.now()
+      
+    };
+    
+    const responseSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(responseData))
+      .digest("hex");
+  
+    await axios.post(`${webhookDomain}/receive-file-schema-webhook`, responseData, {
+      headers: { "X-Signature": responseSignature },
+    });
+
+})
 
 app.get("/api/auth-google", (req, res) => {
   

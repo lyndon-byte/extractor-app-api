@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 const dynamicSchema = {
 
     "name": "schema_field_list",
@@ -103,49 +105,18 @@ const dynamicSchema = {
     }
   }
 
-  const imageSchema = {
+  const imageSchema = z.object({
+    document_type: z.string(),
+    text: z.string(),
+    schema_id: z.string(),
+    schema_found: z.boolean()
+  });
 
-    "name": "document_type_schema",
-    "strict": true,
-    "schema": {
-      "type": "object",
-      "properties": {
-        "document_type": {
-          "type": "string",
-          "description":  "A single-word, lowercase label that identifies the document in the image. Examples: 'resume', 'cv'. Select whichever is most accurate." 
-        },
-        "text": {
-          "type": "string",
-          "description": "A list of visible text segments extracted from the image. Include only the readable text that appears on the document."
-        }
-      },
-      "required": [
-        "document_type",
-        "text",
-      ],
-      "additionalProperties": false,
-    }
-  }
+  const textSchema = z.object({
+    document_type: z.string(),
+    schema_id: z.string(),
+    schema_found: z.boolean()
+  });
   
-  const textSchema = {
-
-    "name": "document_type_schema",
-    "strict": true,
-    "schema": {
-      "type": "object",
-      "properties": {
-        "document_type": {
-          "type": "string",
-          "description":  "A single-word, lowercase label that identifies the document in the image. Examples: 'resume', 'cv'. Select whichever is most accurate." 
-        },
-      },
-      "required": [
-        "document_type",
-      ],
-      "additionalProperties": false,
-    }
-  }
-  
-
 
   export { dynamicSchema, imageSchema, textSchema };
