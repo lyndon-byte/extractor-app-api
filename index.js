@@ -405,6 +405,8 @@ async function analyzeFile(
       }
     });
 
+    console.log("file analyzer result: " + response.output_parsed)
+
     if (!response.output_parsed) {
       console.error("Raw AI output:", response.output_text);
     }
@@ -458,6 +460,8 @@ async function analyzeFile(
         format: zodTextFormat(textSchema,"data")
       }
     });
+
+    console.log("file analyzer result: " + response.output_parsed)
 
     if (!response.output_parsed) {
       console.error("Raw AI output:", response.output_text);
