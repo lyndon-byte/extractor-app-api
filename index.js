@@ -356,6 +356,9 @@ async function analyzeFile(
   let extractedText = null;
   let extractedMeta = null;
 
+
+  console.log("file type: " + fileType)
+
   if (fileType === "image") {
 
     const response = await openai.responses.parse({
