@@ -375,7 +375,7 @@ async function analyzeFile(
 
             After determining the document type:
 
-            - Locate and select the appropriate schema by searching for the schema that best matches the identified document type.
+            - Always use the file-search tool to locate and select the appropriate schema that best matches the identified document type from the vector store.
             - If a matching schema is found, return "schema_found": true.
             - If no matching schema is found, return "schema_found": false.
             Apply normalization rules to all detected dates:
@@ -433,7 +433,7 @@ async function analyzeFile(
 
             After determining the document type:
 
-            - Locate and select the appropriate schema by searching for the schema that best matches the identified document type.
+            - Always use the file-search tool to locate and select the appropriate schema that best matches the identified document type from the vector store.
             - If a matching schema is found, return "schema_found": true.
             - If no matching schema is found, return "schema_found": false.
             Apply normalization rules to all detected dates:
