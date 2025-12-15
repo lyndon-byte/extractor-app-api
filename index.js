@@ -222,11 +222,11 @@ async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
   const tempDir = os.tmpdir();
   const tempFilePath = path.join(tempDir, "schema.jsonl");
 
-  fs.writeFileSync(
-    tempFilePath,
-    JSON.stringify(schemas, null, 2),
-    "utf-8"
-  );
+  const jsonlContent = schemas.map(obj => JSON.stringify(obj)).join("\n");
+
+
+  fs.writeFileSync(tempFilePath, jsonlContent, "utf-8");
+
   
   const uploadedFile = await openai.files.create({
     file: fs.createReadStream(tempFilePath),
