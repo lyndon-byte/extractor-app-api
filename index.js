@@ -220,7 +220,7 @@ async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
   }
 
   const tempDir = os.tmpdir();
-  const tempFilePath = path.join(tempDir, "schema.json");
+  const tempFilePath = path.join(tempDir, "schema.jsonl");
 
   fs.writeFileSync(
     tempFilePath,
@@ -230,7 +230,7 @@ async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
   
   const uploadedFile = await openai.files.create({
     file: fs.createReadStream(tempFilePath),
-    purpose: "user_data",
+    purpose: "fine-tune",
   });
 
   await openai.vectorStores.files.create(vectorStoreId, {
