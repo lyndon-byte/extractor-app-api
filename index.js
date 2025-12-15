@@ -357,8 +357,6 @@ async function analyzeFile(
   let extractedMeta = null;
 
 
-  console.log("file type: " + fileType)
-
   if (fileType === "image") {
 
     const response = await openai.responses.parse({
@@ -410,12 +408,6 @@ async function analyzeFile(
       }
     });
 
-    console.log("file analyzer result: " + response.output_parsed)
-
-    if (!response.output_parsed) {
-      console.error("Raw AI output:", response.output_text);
-    }
-
     extractedMeta = response.output_parsed
     extractedText = extractedMeta.text
   }
@@ -466,12 +458,6 @@ async function analyzeFile(
       }
     });
 
-    console.log("file analyzer result: " + response.output_parsed)
-
-    if (!response.output_parsed) {
-      console.error("Raw AI output:", response.output_text);
-    }
-
     extractedMeta = response.output_parsed;
     extractedText = fileContent
   }
@@ -485,7 +471,7 @@ async function analyzeFile(
         extractedMeta.document_type,
     );
     
-    console.log("new schema: " + newSchema)
+    extractedMeta = newSchema
   } 
 
   return {
@@ -711,9 +697,7 @@ app.post("/api/analyze-file-for-schema", verifySignature, async (req, res) => {
 
     const { content, schemaId: returnedSchemaId, docType  } = await analyzeFile(
       
-        authType, 
-        authSessionId, 
-        fileId, 
+        authType,
         fileType,
         fileExt,
         fileContent,
