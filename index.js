@@ -469,7 +469,7 @@ async function analyzeFile(
 
   if(!extractedMeta?.schema_found){
 
-    const newSchema = await generateSchemaFromAI(   
+     const newSchema = await generateSchemaFromAI(   
         authType,
         orgId,
         vectorStoreId,
