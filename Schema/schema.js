@@ -19,6 +19,10 @@ const dynamicSchema = {
             "description": "A single document, e.g., 'resume', 'invoice', 'cv'."
            }
         },
+        "description": {
+          "type": "string",
+          "description": "A descriptive summary of the document’s content and intent, optimized for semantic matching against this schema."
+        },
         "schema_name": {
           "type": "string",
           "description": "name or title of the data",

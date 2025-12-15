@@ -11,6 +11,7 @@ import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
 import {dynamicSchema,imageSchema,textSchema} from "./Schema/schema.js";
+import os from "os"
 
 dotenv.config(); 
 
@@ -184,11 +185,73 @@ function buildField(field) {
 }
 
 
-async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
+async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
+
+  const vectorFiles = await openai.vectorStores.files.list(vectorStoreId);
+
+  let schemas = [];
+
+  if (vectorFiles.data.length > 0) {
+
+    const vectorFile = vectorFiles.data[0];
+    const content = await openai.files.content(
+      vectorFile.file_id
+    );
+
+    try {
+      schemas = JSON.parse(content);
+    } catch {
+      throw new Error("Existing schema file is not valid JSON");
+    }
+
+    if (!Array.isArray(schemas)) {
+      throw new Error("Schema file must be a JSON array");
+    }
+
+    schemas.push(newSchemaEntry);
+
+    await openai.vectorStores.files.delete(
+      vectorFile.id,
+      { vector_store_id: vectorStoreId }
+    );
+
+  } else {
+    schemas = [newSchemaEntry];
+  }
+
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, "schema.json");
+
+  fs.writeFileSync(
+    tempFilePath,
+    JSON.stringify(schemas, null, 2),
+    "utf-8"
+  );
+  
+  const uploadedFile = await openai.files.create({
+    file: fs.createReadStream(tempFilePath),
+    purpose: "assistants",
+  });
+
+  await openai.vectorStores.files.create(vectorStoreId, {
+    file_id: uploadedFile.id,
+  });
+
+  fs.unlinkSync(tempFilePath);
+
+  return {
+    action: vectorFiles.data.length > 0 ? "updated" : "created",
+    file_id: uploadedFile.id,
+  };
+
+}
+
+async function generateSchemaFromAI(authType,orgId,vectorStoreId,docType) {
 
   let result = {};
   let suggestedFolderName = "";
   let acceptedFiles = [];
+  let description = "";
 
   try {
     const completion = await openai.chat.completions.parse({
@@ -234,7 +297,8 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
     result = generateJsonSchema(parsed)
     suggestedFolderName = parsed.folder_name
     acceptedFiles = parsed.accepted_files
-  
+    description = parsed.description
+    
   } catch (err) {
     console.error("AI Schema Generator Error:", err.response?.data || err);
     return null;
@@ -242,10 +306,11 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
 
   const responseData = {
     authType,                
-    schemaId,
     suggestedFolderName,
     acceptedFiles,
-    sessionId: authSessionId,
+    description,
+    orgId,
+    docType,
     status: result ? "completed" : "failed",
     response: result,
     timestamp: Date.now(),
@@ -256,18 +321,28 @@ async function generateSchemaFromAI(docType,schemaId,authType,authSessionId) {
     .update(JSON.stringify(responseData))
     .digest("hex");
 
-  await axios.post(`${webhookDomain}/receive-generated-schema`, responseData, {
+  const { data: response } = await axios.post(`${webhookDomain}/receive-generated-schema`, responseData, {
     headers: { "X-Signature": responseSignature },
   });
 
-  return { schema: result , id: schemaId};
+  const schema = response?.schema
+
+  const { action: actionDone } = await upsertSchemaFile(vectorStoreId, {
+    schemaId: schema.id,
+    relatedDocuments: acceptedFiles,
+    description: description
+  });
+
+
+  console.log("schema was " + actionDone + " on vector store from schema generation event.")
+
+  return { schema_id: schema.id, document_type: docType };
+
 }
 
 async function analyzeFile(
 
-  authType, 
-  authSessionId, 
-  fileId, 
+  authType,  
   fileType,
   fileExt,
   fileContent,
@@ -386,27 +461,14 @@ async function analyzeFile(
 
   if(!extractedMeta.schema_found){
 
-       // logic to create and save schema
+    const newSchema = await generateSchemaFromAI(   
+        authType,
+        orgId,
+        vectorStoreId,
+        extractedMeta.document_type,
+    );
 
-      // const payload = { result: extractedMeta, orgId };
-      // const requestSignature = crypto
-      //   .createHmac("sha256", process.env.SHARED_SECRET)
-      //   .update(JSON.stringify(payload))
-      //   .digest("hex");
-
-
-      // const { data: response } = await axios.post(
-      //   `${webhookDomain}/find-schema`,
-      //   payload,
-      //   {
-      //     headers: {
-      //       "X-Signature": requestSignature,
-      //       "Content-Type": "application/json",
-      //     },
-      //   }
-      // );
-
-      // foundSchema = await generateSchemaFromAI(foundSchema.name,foundSchema.id,authType,authSessionId);
+    extractedMeta = newSchema
 
   } 
 
@@ -646,16 +708,16 @@ app.post("/api/analyze-file-for-schema", verifySignature, async (req, res) => {
 
     const responseData = {
 
-      authType,
-      fileId,
-      orgId,
-      sessionId: authSessionId,
-      response: {
-        content,
-        schemaId: returnedSchemaId,
-        docType
-      },
-      timestamp: Date.now()
+        authType,
+        fileId,
+        orgId,
+        sessionId: authSessionId,
+        response: {
+          content,
+          schemaId: returnedSchemaId,
+          docType
+        },
+        timestamp: Date.now()
       
     };
     
