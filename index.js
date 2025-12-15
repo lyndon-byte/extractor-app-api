@@ -410,7 +410,7 @@ async function analyzeFile(
       }
     });
 
-    console.log(response.output_parsed)
+    console.log("file analyzer: " + response.output_parsed)
 
     extractedMeta = response.output_parsed
     extractedText = extractedMeta.text
@@ -462,7 +462,7 @@ async function analyzeFile(
       }
     });
 
-    console.log(response.output_parsed)
+    console.log("file analyzer: " + response.output_parsed)
 
     extractedMeta = response.output_parsed;
     extractedText = fileContent
@@ -477,10 +477,10 @@ async function analyzeFile(
         extractedMeta.document_type,
     );
     
-    console.log(newSchema)
+    console.log("new schema: " + newSchema)
 
     extractedMeta = newSchema
-    
+
   } 
 
   return {
