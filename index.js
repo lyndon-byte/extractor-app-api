@@ -410,7 +410,7 @@ async function analyzeFile(
       }
     });
 
-    console.log("file analyzer: " + response.output_parsed)
+    console.log(response.output_parsed)
 
     extractedMeta = response.output_parsed
     extractedText = extractedMeta.text
@@ -462,7 +462,7 @@ async function analyzeFile(
       }
     });
 
-    console.log("file analyzer: " + response.output_parsed)
+    console.log(response.output_parsed)
 
     extractedMeta = response.output_parsed;
     extractedText = fileContent
