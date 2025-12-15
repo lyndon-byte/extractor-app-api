@@ -230,7 +230,7 @@ async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
   
   const uploadedFile = await openai.files.create({
     file: fs.createReadStream(tempFilePath),
-    purpose: "assistants",
+    purpose: "fine-tune",
   });
 
   await openai.vectorStores.files.create(vectorStoreId, {
