@@ -110,18 +110,6 @@ const dynamicSchema = {
     }
   }
 
-  const imageSchema = z.object({
-    document_type: z.string(),
-    text: z.string(),
-    schema_id: z.string().optional(nullable()),
-    schema_found: z.boolean()
-  });
+ 
 
-  const textSchema = z.object({
-    document_type: z.string(),
-    schema_id: z.string().optional(nullable()),
-    schema_found: z.boolean()
-  });
-  
-
-  export { dynamicSchema, imageSchema, textSchema };
+  export { dynamicSchema };
