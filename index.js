@@ -477,7 +477,7 @@ async function analyzeFile(
         authType,
         orgId,
         vectorStoreId,
-        extractedMeta.document_type,
+        extractedMeta?.document_type,
     );
 
     extractedMeta = newSchema
