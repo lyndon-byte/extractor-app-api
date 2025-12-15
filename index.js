@@ -459,13 +459,13 @@ async function analyzeFile(
     extractedText = fileContent
   }
 
-  if(!extractedMeta.schema_found){
+  if(!extractedMeta?.schema_found){
 
     const newSchema = await generateSchemaFromAI(   
         authType,
         orgId,
         vectorStoreId,
-        extractedMeta.document_type,
+        extractedMeta?.document_type,
     );
 
     extractedMeta = newSchema
@@ -475,8 +475,8 @@ async function analyzeFile(
   return {
 
     content: extractedText,
-    schemaId: extractedMeta.schema_id,
-    docType: extractedMeta.document_type
+    schemaId: extractedMeta?.schema_id,
+    docType: extractedMeta?.document_type
 
   };
 
