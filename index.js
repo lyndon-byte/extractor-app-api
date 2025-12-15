@@ -357,7 +357,7 @@ async function analyzeFile(
   let extractedMeta = null;
 
 
-  console.log(fileType)
+  console.log(vectorStoreId)
 
   if (fileType === "image") {
 
