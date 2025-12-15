@@ -405,6 +405,10 @@ async function analyzeFile(
       }
     });
 
+    if (!response.output_parsed) {
+      console.error("Raw AI output:", response.output_text);
+    }
+
     extractedMeta = response.output_parsed
     extractedText = extractedMeta.text
   }
@@ -454,6 +458,10 @@ async function analyzeFile(
         format: zodTextFormat(textSchema,"data")
       }
     });
+
+    if (!response.output_parsed) {
+      console.error("Raw AI output:", response.output_text);
+    }
 
     extractedMeta = response.output_parsed;
     extractedText = fileContent
