@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import { dynamicSchema } from "./Schema/schema.js";
+import {dynamicSchema,imageSchema,textSchema} from "./Schema/schema.js";
 import os from "os"
 
 dotenv.config(); 
@@ -340,18 +340,6 @@ async function generateSchemaFromAI(authType,orgId,vectorStoreId,docType) {
 
 }
 
-const imageSchema = z.object({
-  document_type: z.string(),
-  text: z.string(),
-  schema_id: z.string(),
-  schema_found: z.boolean()
-});
-
-const textSchema = z.object({
-  document_type: z.string(),
-  schema_id: z.string(),
-  schema_found: z.boolean()
-});
 
 
 async function analyzeFile(
@@ -501,8 +489,8 @@ async function analyzeFile(
   return {
 
     content: extractedText,
-    schemaId: extractedMeta?.schema_id,
-    docType: extractedMeta?.document_type
+    schemaId: extractedMeta.schema_id,
+    docType: extractedMeta.document_type
 
   };
 
