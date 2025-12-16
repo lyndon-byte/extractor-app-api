@@ -185,63 +185,46 @@ function buildField(field) {
 }
 
 
-async function upsertSchemaFile(vectorStoreId,newSchemaEntry) {
+async function upsertSchemaFile(vectorStoreId,updatedSchemas) {
 
   const vectorFiles = await openai.vectorStores.files.list(vectorStoreId);
-
-  let schemas = [];
 
   if (vectorFiles.data.length > 0) {
 
     const vectorFile = vectorFiles.data[0];
-    const content = await openai.files.content(
-      vectorFile.file_id
-    );
-
-    try {
-      schemas = JSON.parse(content);
-    } catch {
-      throw new Error("Existing schema file is not valid JSON");
-    }
-
-    if (!Array.isArray(schemas)) {
-      throw new Error("Schema file must be a JSON array");
-    }
-
-    schemas.push(newSchemaEntry);
 
     await openai.vectorStores.files.delete(
       vectorFile.id,
       { vector_store_id: vectorStoreId }
     );
 
-  } else {
-    schemas = [newSchemaEntry];
-  }
+  } 
 
   const tempDir = os.tmpdir();
-  const tempFilePath = path.join(tempDir, "schema.jsonl");
+  const tempFilePath = path.join(tempDir, "schema.json");
 
-  const jsonlContent = schemas.map(obj => JSON.stringify(obj)).join("\n");
-
-
-  fs.writeFileSync(tempFilePath, jsonlContent, "utf-8");
-
+  fs.writeFileSync(
+    tempFilePath,
+    JSON.stringify(updatedSchemas, null, 2),
+    "utf-8"
+  );
   
   const uploadedFile = await openai.files.create({
     file: fs.createReadStream(tempFilePath),
-    purpose: "fine-tune",
+    purpose: "user_data",
   });
 
-  await openai.vectorStores.files.create(vectorStoreId, {
-    file_id: uploadedFile.id,
+  await openai.vectorStores.files.create(
+    vectorStoreId, 
+    {file_id: uploadedFile.id,
   });
 
   fs.unlinkSync(tempFilePath);
 
   return {
-    action: vectorFiles.data.length > 0 ? "updated" : "created",
+
     file_id: uploadedFile.id,
+
   };
 
 }
@@ -325,18 +308,12 @@ async function generateSchemaFromAI(authType,orgId,vectorStoreId,docType) {
     headers: { "X-Signature": responseSignature },
   });
 
-  const schema = response?.schema
+  const schemaId = response?.newSchemaId
+  const updatedSchemasReferences = response?.newSchemasReferences
 
-  const { action: actionDone } = await upsertSchemaFile(vectorStoreId, {
-    schemaId: schema.id,
-    relatedDocuments: acceptedFiles,
-    description: description
-  });
+  await upsertSchemaFile(vectorStoreId,updatedSchemasReferences);
 
-
-  console.log("schema was " + actionDone + " on vector store from schema generation event.")
-
-  return { schema_id: schema.id, document_type: docType };
+  return { schema_id: schemaId, document_type: docType };
 
 }
 
