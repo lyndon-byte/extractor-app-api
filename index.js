@@ -197,6 +197,8 @@ async function upsertSchemaFile(vectorStoreId,updatedSchemas) {
       vectorFile.id,
       { vector_store_id: vectorStoreId }
     );
+    
+    await openai.files.delete(vectorFile.id)
 
   } 
 
