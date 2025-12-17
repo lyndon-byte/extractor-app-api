@@ -507,7 +507,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
                 Use numeric months (e.g., "January" → "1").
               `,
             },
-            { role: "user", content: content },
+            { role: "user", content: requestData.fileContent },
           ],
           response_format: {
             type: "json_schema",
