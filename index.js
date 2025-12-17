@@ -472,9 +472,7 @@ async function analyzeFile(
 // Incoming webhook endpoint
 app.post("/api/extract-data", verifySignature, async (req, res) => {
 
-    const { authType, authSessionId, extraction_request, orgId } = req.verifiedBody;
-
-    let schemaId;
+    const { authType, authSessionId, extraction_request, schema } = req.verifiedBody;
 
     const ackData = {
       status: "accepted",
@@ -491,10 +489,6 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
     res.status(200).json(ackData);
 
     for (const requestData of extraction_request) {
-
-      const { content, schema, schemaId: returnedSchemaId  } = await analyzeFile(requestData,orgId,authType,authSessionId)
-
-      schemaId = returnedSchemaId
 
       let parsedData = null;
     
@@ -532,7 +526,6 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
     
       const responseData = {
         authType,
-        schemaId,
         sessionId: authSessionId,
         extractionRequestId: requestData.extraction_request_id,
         status: parsedData ? "completed" : "failed",
