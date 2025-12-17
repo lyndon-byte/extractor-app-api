@@ -474,6 +474,8 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
     const { authType, authSessionId, extraction_request, schema } = req.verifiedBody;
 
+    console.log(schema)
+
     const ackData = {
       status: "accepted",
       note: "Processing, result will be sent to webhook",
