@@ -553,7 +553,7 @@ app.post("/api/extract-data", verifySignature, async (req, res) => {
 
 app.post("/api/generate-schema",verifySignature, async (req, res) => {
 
-    const { instruction, authSessionId, schemaId, authType  } = req.body;
+    const { instruction, vectorStoreId, authSessionId, schemaId, authType  } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -572,9 +572,10 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
     console.log("✅Request Receive");
     
     let result = {};
-
     let suggestedFolderName = "";
-  
+    let acceptedFiles = [];
+    let description = "";
+    
     try {
 
       const completion = await openai.chat.completions.parse({
@@ -589,11 +590,12 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
               1. Read the user's natural-language description of the data structure.
               2. Generate:
                 - A JSON schema (pure JSON only)
-
-              Rules:
-              - schema name must be appropriate and strictly seperated with underscore only.
-              - Always include "type", "properties", and required fields in JSON.
-              - Never return additional text, only JSON
+              
+              STRICT RULES:
+              - schema name must use snake_case.
+              - All field names must use snake_case.
+              - Each property must have an appropriate type (string, object, array).
+              - Include nested objects where applicable (e.g., addresses, work_history, education, items, totals).
 
             `
           },
@@ -608,8 +610,9 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       const parsedData = completion.choices?.[0]?.message?.parsed || null;
       
       result = generateJsonSchema(parsedData)
-
       suggestedFolderName = parsedData.folder_name
+      acceptedFiles = parsed.accepted_files
+      description = parsed.description
 
     } catch (err) {
 
@@ -621,6 +624,8 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       authType,                
       schemaId,
       suggestedFolderName,
+      acceptedFiles,
+      description,
       sessionId: authSessionId,
       status: result ? "completed" : "failed",
       response: result,
@@ -634,10 +639,14 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       .update(JSON.stringify(responseData))
       .digest("hex");
   
-    await axios.post(`${webhookDomain}/receive-generated-schema`, responseData, {
+    
+    const { data: response } = await axios.post(`${webhookDomain}/receive-generated-schema`, responseData, {
       headers: { "X-Signature": responseSignature },
     });
   
+    const updatedSchemasReferences = response?.newSchemasReferences
+  
+    await upsertSchemaFile(vectorStoreId,updatedSchemasReferences);
 
   
 });
