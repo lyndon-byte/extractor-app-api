@@ -611,8 +611,8 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
       
       result = generateJsonSchema(parsedData)
       suggestedFolderName = parsedData.folder_name
-      acceptedFiles = parsed.accepted_files
-      description = parsed.description
+      acceptedFiles = parsedData.accepted_files
+      description = parsedData.description
 
     } catch (err) {
 
