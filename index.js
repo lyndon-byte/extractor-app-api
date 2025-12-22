@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import {dynamicSchema,imageSchema,textSchema} from "./Schema/schema.js";
+import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate} from "./Schema/schema.js";
 import os from "os"
 
 dotenv.config(); 
@@ -649,6 +649,91 @@ app.post("/api/generate-schema",verifySignature, async (req, res) => {
     await upsertSchemaFile(vectorStoreId,updatedSchemasReferences);
 
   
+});
+
+app.post("/api/update-global-schema-fields",verifySignature, async (req, res) => {
+
+    const { authSessionId, schemaId, schema  } = req.body;
+
+    const ackData = {
+      status: "accepted",
+      note: "Processing, result will be sent to webhook",
+      timestamp: Date.now(),
+    };
+
+    const ackSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(ackData))
+      .digest("hex");
+
+    res.setHeader("X-Signature", ackSignature);
+    res.status(200).json(ackData);
+
+    console.log("✅Request Receive");
+    
+    let result = {};
+    
+    try {
+
+      const completion = await openai.chat.completions.parse({
+        model: "gpt-4o-2024-08-06",
+        messages: [
+          { role: "system", 
+            content: `
+
+              You are an AI assistant that fix JSON Schema fields.
+
+              Your job is to:
+              1. Read the user's schema and look for errors.
+              2. Generate:
+                - A new JSON schema (pure JSON only)
+              
+              STRICT RULES:
+              - schema name must use snake_case.
+              - All field names must use snake_case.
+              - Each property must have an appropriate type (string, object, array).
+              - Include nested objects where applicable (e.g., addresses, work_history, education, items, totals).
+
+            `
+          },
+          { role: "user", content: schema },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: dynamicSchemaForUpdate 
+        },
+      });
+      
+      const parsedData = completion.choices?.[0]?.message?.parsed || null;
+      
+      result = generateJsonSchema(parsedData)
+
+    } catch (err) {
+
+      console.error("❌ OpenAI error:", err.response?.data || err.message || err);
+
+    }
+
+    const responseData = {          
+      schemaId,
+      sessionId: authSessionId,
+      response: result,
+      timestamp: Date.now(),
+    };
+
+    console.log("✅ Sending back:", responseData);
+
+    const responseSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(responseData))
+      .digest("hex");
+
+    
+    await axios.post(`${webhookDomain}/receive-updated-global-schema-fields`, responseData, {
+      headers: { "X-Signature": responseSignature },
+    });
+
+
 });
 
 app.post("/api/analyze-file-for-schema", verifySignature, async (req, res) => {
