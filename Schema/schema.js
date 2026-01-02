@@ -215,4 +215,93 @@ const dynamicSchemaForUpdate = {
   });
   
 
-  export { dynamicSchema, imageSchema, textSchema, dynamicSchemaForUpdate };
+
+  const estimationSchema = {
+
+    "name": "weight_and_serving",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "description": "Estimated food identification and serving size analysis based on a single dish image.",
+      "properties": {
+        "detectedFoods": {
+          "type": "array",
+          "description": "List of individual food items visually detected in the dish image, with estimated serving sizes.",
+          "items": {
+            "type": "object",
+            "description": "Estimated serving information for a single detected food item.",
+            "properties": {
+              "foodName": {
+                "type": "string",
+                "description": "Common name of the detected food item (e.g., egg, fish, chicken breast)."
+              },
+              "servingSizeUnit": {
+                "type": "string",
+                "description": "Unit of measurement used for the serving size estimate (e.g., g, oz)."
+              },
+              "servingSize": {
+                "type": "number",
+                "description": "Estimated numeric quantity of the food in the specified unit, inferred visually from the image."
+              },
+              "householdServingFullText": {
+                "type": "string",
+                "description": "Human-readable household serving approximation (e.g., '1 cup', '2 slices', '1 medium piece')."
+              }
+            },
+            "required": [
+              "foodName",
+              "servingSizeUnit",
+              "servingSize",
+              "householdServingFullText"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "detectedFoods"
+      ],
+      "additionalProperties": false
+    }
+  }
+
+  const estimatedCaloriesSchema = {
+    
+    "name": "calories",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "description": "Calculated calories for each detected food item based on AI-estimated servings and USDA reference data.",
+      "properties": {
+        "foods": {
+          "type": "array",
+          "description": "List of individual food items with their calculated calories.",
+          "items": {
+            "type": "object",
+            "description": "Estimated calories for a single food item.",
+            "properties": {
+              "foodName": {
+                "type": "string",
+                "description": "Common name of the detected food item (e.g., egg, fish, chicken breast)."
+              },
+              "calories": {
+                "type": "number",
+                "description": "Calculated calories for this food based on the AI-estimated serving and USDA reference data."
+              }
+            },
+            "required": [
+              "foodName",
+              "calories"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "foods"
+      ],
+      "additionalProperties": false
+    }
+  }
+  
+  export { dynamicSchema, imageSchema, textSchema, dynamicSchemaForUpdate, estimationSchema, estimatedCaloriesSchema };

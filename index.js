@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate} from "./Schema/schema.js";
+import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate, estimationSchema, estimatedCaloriesSchema} from "./Schema/schema.js";
 import os from "os"
 
 dotenv.config(); 
@@ -1083,6 +1083,235 @@ app.post("/api/webhook-receiver", async (req, res) => {
     }
 
 })
+
+async function enrichFoodsWithCalories(detectedFoods) {
+
+  const API_KEY = "H7tmFjyUfV5Pkbi3afkJz0XpwK2tgtDWwuBNTGQG";
+
+  const realFoodData = [];
+
+  for (const food of detectedFoods) {
+
+    const response = await fetch(
+      `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${API_KEY}&query=${encodeURIComponent(food.foodName)}`
+    );
+
+    const data = await response.json();
+
+    const usdaFood = data.foods[0];
+
+    let calorieValue = null;
+
+    if (Array.isArray(usdaFood.foodNutrients)) {
+      const energyNutrient = usdaFood.foodNutrients.find(
+        n => n.nutrientName?.toLowerCase() === "energy"
+      );
+
+      if (energyNutrient && typeof energyNutrient.value === "number") {
+        calorieValue = energyNutrient.value;
+      }
+    }
+
+    realFoodData.push({
+      foodName: food.foodName,
+      servingSizeUnit: usdaFood.servingSizeUnit,
+      servingSize: usdaFood.servingSize,
+      householdServingFullText: usdaFood.householdServingFullText,
+      calculatedCaloriePerServing: calorieValue
+    });
+  }
+
+  return JSON.stringify(realFoodData);
+}
+
+app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
+
+  try {
+
+    const { fileExt, fileContent } = req.body;
+
+    const ackData = {
+      status: "accepted",
+      note: "Processing, result will be sent to webhook",
+      timestamp: Date.now(),
+    };
+
+    const ackSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(ackData))
+      .digest("hex");
+  
+    res.setHeader("X-Signature", ackSignature);
+    res.status(200).json(ackData);
+
+    const response = await openai.responses.parse({
+
+      model: "gpt-4o-2024-08-06",
+      input: [
+        {
+          role: "system",
+          content: `
+
+          You are an AI vision-based food analysis assistant.
+          
+          Your task is to analyze a single image of a prepared dish and identify all visually distinct food items present. For each detected food item, you must estimate its serving size based solely on visual cues from the image.
+          
+          # Core Responsibilities
+
+          Detect individual food items visible in the dish.
+          Treat mixed dishes as separate components when visually distinguishable (e.g., rice and chicken, vegetables and meat).
+          Provide reasonable visual estimates, not exact measurements.
+          When uncertain, still provide the best plausible estimate based on common portion sizes.
+          
+          # Output Requirements
+          
+          You must respond only with JSON that strictly conforms to the provided schema.
+          Do not include explanations, commentary, or additional fields.
+          Do not include markdown or formatting outside the JSON object.
+          Do not guess foods that are not visually present.
+          
+          # Field Instructions
+          
+          For each object in detectedFoods:
+          
+          [foodName]:
+          
+          Use a common, generic food name.
+          
+          Avoid brand names or overly specific culinary terms unless visually obvious.
+          
+          servingSizeUnit
+          
+          Use standard weight units only (g or oz).
+          Use a single unit consistently per food item.
+          
+          [servingSize]:
+          
+          Provide a numeric estimate of the food’s weight in the specified unit.
+          The value must be a number, not a string.
+          
+          [householdServingFullText]:
+          
+          Provide a human-readable serving approximation (e.g., “1 cup”, “2 slices”, “1 medium piece”).
+          This value should align logically with the numeric serving size.
+          
+          # Estimation Guidelines
+          
+          Base estimates on typical household portions and visual scale references (plates, utensils, bowls).
+          Prefer conservative estimates over extreme values.
+          If multiple pieces of the same food are present, estimate the total combined serving.
+          
+          # Constraints
+          
+          Do not include nutritional data, calories, or macros.
+          Do not infer ingredients that cannot be visually confirmed.
+          Do not include confidence scores or uncertainty language in the output.
+          Do not add or remove schema fields.
+                      
+          `,
+        },
+        {
+          role: "user",
+          content: [
+            {type: "input_text", text: "Analyze the image" },
+            {
+              type: "input_image",
+              image_url: `data:image/${fileExt};base64,${fileContent}`,
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          json_schema: estimationSchema 
+        }
+      }
+      // text: {
+      //   format: zodTextFormat(estimationSchema,"data")
+      // }
+    });
+
+    const realFoodData =  enrichFoodsWithCalories(response.output_parsed)
+    const estimatedFoodData = JSON.stringify(response.output_parsed)
+
+    const estimatedCalories = await openai.responses.parse({
+
+      model: "gpt-4o-2024-08-06",
+      input: [
+        {
+          role: "system",
+          content: `
+
+          You are a nutrition calculation assistant.
+
+          Your task is to calculate the calories for each detected food item based on:
+          
+          1. The AI-estimated serving sizes and units (from estimatedFoodData).
+          2. The reference USDA food data (from realFoodData), which provides calorie information per standard serving.
+          
+          For each food item:
+          
+          - Use the estimated serving size and unit to compute the total calories.
+          - Compare it to the USDA reference serving size and weight.
+          - Return a numeric "calculatedCaloriePerServing" for each item.
+          - Do not modify the original food name or other metadata.
+          
+          Your response must strictly follow the provided JSON schema.
+          Do not include explanations, commentary, or any extra fields.
+                              
+          `,
+        },
+        {
+          role: "user",
+          content: `
+
+            estimated food data: ${estimatedFoodData}
+            real USDA food data: ${realFoodData}
+            
+            Instructions:
+            - estimatedFoodData contains AI-estimated servings/weights for each food.
+            - realFoodData contains USDA reference info including standard serving sizes and calories per standard serving.
+            - For each food in estimatedFoodData, calculate calories as:
+                calculatedCaloriePerServing = (estimatedServing / USDAServingSize) * USDACalories
+            - Return the final list of food objects with calculatedCaloriePerServing added.
+          
+            `,
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          json_schema: estimatedCaloriesSchema 
+        }
+      }
+    });
+
+    const responseData = {
+
+        calorie: estimatedCalories.output_parsed,
+        timestamp: Date.now()
+      
+    };
+    
+    const responseSignature = crypto
+      .createHmac("sha256", process.env.SHARED_SECRET)
+      .update(JSON.stringify(responseData))
+      .digest("hex");
+
+    await axios.post(`${webhookDomain}/receive-estimated-calorie`, responseData, {
+      headers: { "X-Signature": responseSignature },
+    });
+
+
+  } catch (error) {
+
+    console.error("api error:", error);
+    res.status(500).json({ success: false });
+  }
+
+})
+
 
 
 // Start server
