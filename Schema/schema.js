@@ -273,6 +273,10 @@ const dynamicSchemaForUpdate = {
       "type": "object",
       "description": "Calculated calories for each detected food item based on AI-estimated servings and USDA reference data.",
       "properties": {
+        "dishDescription": {
+          "type": "string",
+          "description": "A short, human-readable description of the overall dish based on the combined detected foods (e.g., 'grilled chicken with rice and vegetables'). This does not need to be an exact dish name."
+        },
         "foods": {
           "type": "array",
           "description": "List of individual food items with their calculated calories.",
@@ -298,6 +302,7 @@ const dynamicSchemaForUpdate = {
         }
       },
       "required": [
+        "dishDescription",
         "foods"
       ],
       "additionalProperties": false
