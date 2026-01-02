@@ -1224,7 +1224,8 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
       text: {
         format: {
           type: "json_schema",
-          estimationSchema 
+          name: "food_weight_and_servings_estimation",
+          schema: estimationSchema 
         }
       }
       // text: {
@@ -1282,7 +1283,8 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
       text: {
         format: {
           type: "json_schema",
-          estimatedCaloriesSchema
+          name: "calorie_estimation",
+          schema: estimatedCaloriesSchema 
         }
       }
     });
