@@ -1128,7 +1128,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
   try {
 
-    const { fileExt, fileContent } = req.body;
+    const { userId, fileExt, fileContent } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -1292,10 +1292,9 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     });
 
     const responseData = {
-
+        userId,
         calorie: estimatedCalories.output_parsed,
         timestamp: Date.now()
-      
     };
     
     const responseSignature = crypto
@@ -1303,7 +1302,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
       .update(JSON.stringify(responseData))
       .digest("hex");
 
-    await axios.post(`${webhookDomain}/receive-estimated-calorie`, responseData, {
+    await axios.post(`${webhookDomain}/api/receive-estimated-calorie`, responseData, {
       headers: { "X-Signature": responseSignature },
     });
 
