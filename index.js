@@ -1236,7 +1236,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
       // }
     });
 
-    const realFoodData =  enrichFoodsWithCalories(response.output_parsed)
+    const realFoodData =  enrichFoodsWithCalories(response.output_parsed.detectedFoods)
     const estimatedFoodData = JSON.stringify(response.output_parsed)
 
     const estimatedCalories = await openai.responses.parse({
