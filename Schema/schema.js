@@ -290,27 +290,27 @@ const dynamicSchemaForUpdate = {
               },
               "protein": {
                 "type": "number",
-                "description": "Calculated protein in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated protein in grams (g) for this food based on the AI-estimated serving and USDA reference data."
               },
               "fat": {
                 "type": "number",
-                "description": "Calculated fat in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated fat in grams (g) for this food based on the AI-estimated serving and USDA reference data."
               },
               "carbohydrates": {
                 "type": "number",
-                "description": "Calculated carbohydrates in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated carbohydrates in grams (g) for this food based on the AI-estimated serving and USDA reference data."
               },
               "fiber": {
                 "type": "number",
-                "description": "Calculated fiber in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated fiber in grams (g) for this food based on the AI-estimated serving and USDA reference data."
               },
               "sugar": {
                 "type": "number",
-                "description": "Calculated sugar in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated sugar in grams (g) for this food based on the AI-estimated serving and USDA reference data."
               },
               "sodium": {
                 "type": "number",
-                "description": "Calculated sodium in milligrams (mg) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+                "description": "Calculated sodium in milligrams (mg) for this food based on the AI-estimated serving and USDA reference data."
               },
               "calories": {
                 "type": "number",
