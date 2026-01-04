@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import { File } from "node:buffer";
 import path from "path";
-import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate, estimationSchema, estimatedCaloriesSchema} from "./Schema/schema.js";
+import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate, estimationSchema, estimatedNutrientsSchema} from "./Schema/schema.js";
 import os from "os"
 
 dotenv.config(); 
@@ -1242,55 +1242,56 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const estimatedFoodData = JSON.stringify(response.output_parsed)
 
-    const estimatedCalories = await openai.responses.parse({
+    const estimatedNutrients = await openai.responses.parse({
 
       model: "gpt-4o-2024-08-06",
       input: [
         {
           role: "system",
           content: `
-
-          You are a nutrition calculation assistant.
-
-          Your task is to calculate the calories for each detected food item based on:
-          
-          1. The AI-estimated serving sizes and units (from estimatedFoodData).
-          2. The reference USDA food data (from realFoodData), which provides calorie information per standard serving.
-          
-          For each food item:
-          
-          - Use the estimated serving size and unit to compute the total calories.
-          - Compare it to the USDA reference serving size and weight.
-          - Do not modify the original food name or other metadata.
-          
-          Your response must strictly follow the provided JSON schema.
-          Do not include explanations, commentary, or any extra fields.
-                              
-          `,
+            You are a nutrition calculation assistant.
+            
+            Your task is to calculate nutrient values for each detected food item based on:
+            
+            1. The AI-estimated serving sizes and units (from estimatedFoodData).
+            2. The reference USDA food data (from realFoodData), which provides nutrient values per standard serving.
+            
+            For each food item:
+            
+            - Use the estimated serving size and unit to scale nutrient values from the USDA reference data.
+            - Compare the estimated serving size against the USDA standard serving size and weight.
+            - Calculate all available nutrients proportionally (e.g., calories, protein, fat, carbohydrates, fiber, sugar, sodium).
+            - If a nutrient exists in USDA data but results in zero after calculation, return 0 (not null or omitted).
+            - Do not modify the original food name or other metadata.
+            
+            Your response must strictly follow the provided JSON schema.
+            Do not include explanations, commentary, or any extra fields.
+        `
         },
         {
           role: "user",
           content: `
-
             estimated food data: ${estimatedFoodData}
             real USDA food data: ${realFoodData}
             
             Instructions:
-            - estimatedFoodData contains AI-estimated servings/weights for each food.
-            - realFoodData contains USDA reference info including standard serving sizes and calories per standard serving.
-            - For each food in estimatedFoodData, calculate calories as:
-                calculatedCaloriePerServing = (estimatedServing / USDAServingSize) * USDACalories
-            - Return the final list of food objects with calculatedCaloriePerServing added.
-          
-            `,
-        },
+            - estimatedFoodData contains AI-estimated servings and units for each food.
+            - realFoodData contains USDA reference data including standard serving size and nutrient values.
+            - For each food in estimatedFoodData, calculate nutrients using the formula:
+            
+              calculatedNutrientValue = (estimatedServing / USDAServingSize) * USDANutrientValue
+            
+            - Apply the formula consistently to all nutrients provided in USDA data.
+            - Return the final list of food objects with calculated nutrient values added.
+        `
+        }
       ],
       text: {
         format: {
           type: "json_schema",
-          name: "calorie_estimation",
+          name: "nutrients_estimation",
           strict: true,
-          schema: estimatedCaloriesSchema.schema 
+          schema: estimatedNutrientsSchema.schema 
         }
       }
     });
@@ -1298,7 +1299,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     const responseData = {
         userId,
         realFoodData,
-        calorie: estimatedCalories.output_parsed,
+        estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
     };
     

@@ -265,9 +265,9 @@ const dynamicSchemaForUpdate = {
     }
   }
 
-  const estimatedCaloriesSchema = {
+  const estimatedNutrientsSchema = {
     
-    "name": "calories",
+    "name": "nutrients",
     "strict": true,
     "schema": {
       "type": "object",
@@ -339,4 +339,4 @@ const dynamicSchemaForUpdate = {
     }
   }
   
-  export { dynamicSchema, imageSchema, textSchema, dynamicSchemaForUpdate, estimationSchema, estimatedCaloriesSchema };
+  export { dynamicSchema, imageSchema, textSchema, dynamicSchemaForUpdate, estimationSchema, estimatedNutrientsSchema };
