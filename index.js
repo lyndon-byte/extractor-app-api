@@ -1297,6 +1297,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const responseData = {
         userId,
+        realFoodData,
         calorie: estimatedCalories.output_parsed,
         timestamp: Date.now()
     };
