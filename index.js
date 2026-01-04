@@ -1123,6 +1123,8 @@ async function enrichFoodsWithCalories(detectedFoods) {
     });
   }
 
+  console.log(realFoodData)
+
   return JSON.stringify(realFoodData);
 }
 
@@ -1237,8 +1239,6 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     });
 
     const realFoodData =  enrichFoodsWithCalories(response.output_parsed.detectedFoods)
-
-    console.log(realFoodData)
 
     const estimatedFoodData = JSON.stringify(response.output_parsed)
 
