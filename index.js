@@ -1100,24 +1100,26 @@ async function enrichFoodsWithCalories(detectedFoods) {
 
     const usdaFood = data.foods[0];
 
-    let calorieValue = null;
+    let nutrients = [];
 
     if (Array.isArray(usdaFood.foodNutrients)) {
-      const energyNutrient = usdaFood.foodNutrients.find(
-        n => n.nutrientName?.toLowerCase() === "energy"
-      );
-
-      if (energyNutrient && typeof energyNutrient.value === "number") {
-        calorieValue = energyNutrient.value;
-      }
+      nutrients = usdaFood.foodNutrients
+        .filter(n => n.nutrientName && typeof n.value === "number")
+        .map(n => ({
+          nutrientName: n.nutrientName,
+          value: n.value,
+          unitName: n.unitName || null // optional: include unit
+        }));
     }
 
     realFoodData.push({
+
       foodName: food.foodName,
       servingSizeUnit: usdaFood.servingSizeUnit,
       servingSize: usdaFood.servingSize,
       householdServingFullText: usdaFood.householdServingFullText,
-      calculatedCaloriePerServing: calorieValue
+      nutrients: nutrients
+
     });
   }
 
@@ -1256,7 +1258,6 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
           
           - Use the estimated serving size and unit to compute the total calories.
           - Compare it to the USDA reference serving size and weight.
-          - Return a numeric "calculatedCaloriePerServing" for each item.
           - Do not modify the original food name or other metadata.
           
           Your response must strictly follow the provided JSON schema.

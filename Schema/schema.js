@@ -288,6 +288,30 @@ const dynamicSchemaForUpdate = {
                 "type": "string",
                 "description": "Common name of the detected food item (e.g., egg, fish, chicken breast)."
               },
+              "protein": {
+                "type": "number",
+                "description": "Calculated protein in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
+              "fat": {
+                "type": "number",
+                "description": "Calculated fat in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
+              "carbohydrates": {
+                "type": "number",
+                "description": "Calculated carbohydrates in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
+              "fiber": {
+                "type": "number",
+                "description": "Calculated fiber in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
+              "sugar": {
+                "type": "number",
+                "description": "Calculated sugar in grams (g) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
+              "sodium": {
+                "type": "number",
+                "description": "Calculated sodium in milligrams (mg) for this food based on the AI-estimated serving and USDA reference data. May be 0 if none is present."
+              },
               "calories": {
                 "type": "number",
                 "description": "Calculated calories for this food based on the AI-estimated serving and USDA reference data."
@@ -295,6 +319,12 @@ const dynamicSchemaForUpdate = {
             },
             "required": [
               "foodName",
+              "protein",
+              "fat",
+              "carbohydrates",
+              "fiber",
+              "sugar",
+              "sodium",
               "calories"
             ],
             "additionalProperties": false
