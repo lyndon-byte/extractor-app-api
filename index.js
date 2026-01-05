@@ -1132,7 +1132,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
   try {
 
-    const { userId, fileExt, fileContent } = req.body;
+    const { userId, uploadedFoodAnalyzationRequestId, fileExt, fileContent } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -1233,9 +1233,6 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
           schema: estimationSchema.schema 
         }
       }
-      // text: {
-      //   format: zodTextFormat(estimationSchema,"data")
-      // }
     });
 
     const realFoodData = await enrichFoodsWithCalories(response.output_parsed.detectedFoods)
@@ -1298,7 +1295,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const responseData = {
         userId,
-        realFoodData,
+        uploadedFoodAnalyzationRequestId,
         estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
     };
