@@ -224,6 +224,14 @@ const dynamicSchemaForUpdate = {
       "type": "object",
       "description": "Estimated food identification and serving size analysis based on a single dish image.",
       "properties": {
+        "isValidFood": {
+          "type": "boolean",
+          "description": "Indicates whether the uploaded image primarily contains edible food suitable for nutritional analysis. This must be false if the image shows non-food objects (e.g., people, animals, vehicles, scenery, documents, or products) or if no recognizable food is present."
+        },
+        "invalidReason": {
+          "type": "string",
+          "description": "If isValidFood is false, this provides a short human-readable explanation of what was detected instead (e.g., 'person', 'car', 'text document', 'blurry image', 'multiple unrelated objects'). Must be null when isValidFood is true."
+        },
         "detectedFoods": {
           "type": "array",
           "description": "List of individual food items visually detected in the dish image, with estimated serving sizes.",
@@ -259,6 +267,8 @@ const dynamicSchemaForUpdate = {
         }
       },
       "required": [
+        "isValidFood",
+        "invalidReason",
         "detectedFoods"
       ],
       "additionalProperties": false

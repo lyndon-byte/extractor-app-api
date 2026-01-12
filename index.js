@@ -1211,7 +1211,11 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
           Do not infer ingredients that cannot be visually confirmed.
           Do not include confidence scores or uncertainty language in the output.
           Do not add or remove schema fields.
-                      
+
+          If the image does not primarily contain edible food, you must set:
+          - isValidFood = false
+          - invalidReason = what was detected instead
+                                
           `,
         },
         {
@@ -1235,9 +1239,34 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
       }
     });
 
-    const realFoodData = await enrichFoodsWithCalories(response.output_parsed.detectedFoods)
+    const generatedData = response.output_parsed;
 
-    const estimatedFoodData = JSON.stringify(response.output_parsed)
+    if(!generatedData.isValidFood){
+
+      const rejectionPayload = {
+        userId,
+        uploadedFoodAnalyzationRequestId,
+        isValidFood: false,
+        invalidReason: generatedData.invalidReason,
+        timestamp: Date.now()
+      };
+
+      const rejectionSignature = crypto
+        .createHmac("sha256", process.env.SHARED_SECRET)
+        .update(JSON.stringify(rejectionPayload))
+        .digest("hex");
+
+      await axios.post(`${webhookDomain}/api/receive-estimated-calorie`, rejectionPayload, {
+        headers: { "X-Signature": rejectionSignature }
+      });
+
+      return;
+
+    }
+
+    const realFoodData = await enrichFoodsWithCalories(generatedData.detectedFoods)
+
+    const estimatedFoodData = JSON.stringify(generatedData.detectedFoods)
 
     const estimatedNutrients = await openai.responses.parse({
 
@@ -1246,6 +1275,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
         {
           role: "system",
           content: `
+          
             You are a nutrition calculation assistant.
             
             Your task is to calculate nutrient values for each detected food item based on:
@@ -1268,6 +1298,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
         {
           role: "user",
           content: `
+
             estimated food data: ${estimatedFoodData}
             real USDA food data: ${realFoodData}
             
@@ -1296,6 +1327,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     const responseData = {
         userId,
         uploadedFoodAnalyzationRequestId,
+        isValidFood: true,
         estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
     };
