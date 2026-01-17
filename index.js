@@ -40,7 +40,7 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-
+const jobQueue = new Map();
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
@@ -56,13 +56,28 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  socket.on("subscribe-job", ({ jobId }) => {
-    // if (!isJobOwnedByUser(jobId, socket.user.id)) {
-    //   socket.disconnect();
-    //   return;
-    // }
-    socket.join(jobId);
-  });
+
+    console.log("✅ Socket connected:", socket.id);
+
+    socket.on("subscribe-job", ({ jobId }) => {
+
+      console.log(`Socket ${socket.id} joined job ${jobId}`);
+      socket.join(jobId);
+
+      if (jobQueue.has(jobId)) {
+        const job = jobQueue.get(jobId);
+        if (!job.started) {
+          job.started = true;
+          startAIProcess(jobId, job.fileData);
+        }
+      }
+
+    });
+
+    socket.on("disconnect", () => {
+      console.log("⚠️ Socket disconnected:", socket.id);
+    });
+    
 });
 
 server.listen(PORT);
@@ -1213,17 +1228,11 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const { userId, uploadedFoodAnalyzationRequestId, fileExt, fileContent } = req.body;
 
-    const jobId = uploadedFoodAnalyzationRequestId;
-
     const ackData = {
       status: "accepted",
       note: "Processing",
       timestamp: Date.now(),
     };
-
-    emitProgress(jobId, "started", "Job accepted", 5);
-
-    emitProgress(jobId, "analyzing_image", "Analyzing image", 20);
 
     const ackSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
@@ -1232,6 +1241,39 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
   
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
+
+    jobQueue.set(uploadedFoodAnalyzationRequestId, {
+      fileData: { userId, fileContent, fileExt },
+      started: false,
+    });
+
+    console.log(`📝 Job queued: ${uploadedFoodAnalyzationRequestId}`);
+
+  } catch (error) {
+
+    console.error("api error:", error);
+
+    io.to(uploadedFoodAnalyzationRequestId).emit("ai-error", {
+      message: "Processing failed"
+    });
+
+    res.status(500).json({ success: false });
+
+  }
+
+})
+
+async function startAIProcess(jobId, fileData) {
+
+  console.log(`🚀 Starting AI process for job ${jobId}`);
+
+  const { userId, fileContent, fileExt } = fileData;
+
+  try {
+    
+    emitProgress(jobId, "started", "Job accepted", 5);
+
+    emitProgress(jobId, "analyzing_image", "Analyzing image", 20);
 
     const response = await openai.responses.parse({
 
@@ -1422,7 +1464,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const responseData = {
         userId,
-        uploadedFoodAnalyzationRequestId,
+        uploadedFoodAnalyzationRequestId: jobId,
         isValidFood: true,
         estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
@@ -1432,7 +1474,6 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     io.to(jobId).emit("ai-complete", responseData);
 
-  
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
       .update(JSON.stringify(responseData))
@@ -1443,19 +1484,18 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     });
 
 
-  } catch (error) {
 
-    console.error("api error:", error);
+  } catch (err) {
+    console.error("AI process error:", err);
 
-    io.to(uploadedFoodAnalyzationRequestId).emit("ai-error", {
-      message: "Processing failed"
+    io.to(jobId).emit("ai-error", {
+      error: err.message || "Unknown AI error",
+      jobId,
     });
 
-    res.status(500).json({ success: false });
-
+    jobQueue.delete(jobId);
   }
-
-})
+}
 
 
 // // Start server
