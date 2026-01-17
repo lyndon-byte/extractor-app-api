@@ -22,7 +22,6 @@ if (!globalThis.File) {
 }
 
 
-
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
@@ -40,6 +39,9 @@ const io = new Server(server, {
   path: "/socket",
   cors: { origin: "*" }
 });
+
+
+console.log(io)
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
