@@ -41,7 +41,6 @@ const io = new Server(server, {
 });
 
 
-console.log(io)
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
