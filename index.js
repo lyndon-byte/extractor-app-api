@@ -41,8 +41,25 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-io.on("connection", socket => {
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+
+  try {
+    const user = await verifyLaravelToken(token); // call Laravel API
+    socket.user = user; 
+    next();
+  } catch (err) {
+    console.error("WebSocket auth failed:", err.message);
+    next(new Error("Unauthorized"));
+  }
+});
+
+io.on("connection", (socket) => {
   socket.on("subscribe-job", ({ jobId }) => {
+    // if (!isJobOwnedByUser(jobId, socket.user.id)) {
+    //   socket.disconnect();
+    //   return;
+    // }
     socket.join(jobId);
   });
 });
@@ -84,6 +101,36 @@ function emitProgress(jobId, step, message, percent = null) {
   });
 }
 
+
+async function verifyLaravelToken(token) {
+
+  if (!token) throw new Error("No token provided");
+
+  try {
+    const { data } = await axios.get("https://www.kaloreea.io/api/user", {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (data.message === "Unauthenticated.") {
+
+      throw new Error("Invalid token");
+
+    }
+
+    return data;
+
+  } catch (err) {
+
+    if (err.response && err.response.status === 401) {
+      throw new Error("Unauthorized token");
+    }
+
+    throw new Error(err.message || "Token verification failed");
+  }
+}
 
 function verifySignature(req, res, next) {
 
