@@ -12,12 +12,16 @@ import { File } from "node:buffer";
 import path from "path";
 import {dynamicSchema,imageSchema,textSchema,dynamicSchemaForUpdate, estimationSchema, estimatedNutrientsSchema} from "./Schema/schema.js";
 import os from "os"
+import { Server } from "socket.io";
+import http from "http"
 
 dotenv.config(); 
 
 if (!globalThis.File) {
   globalThis.File = File;
 }
+
+
 
 const storage = multer.diskStorage({
   destination: "uploads/",
@@ -29,7 +33,23 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+
+const io = new Server(server, {
+  path: "/socket",
+  cors: { origin: "*" }
+});
+
+io.on("connection", socket => {
+  socket.on("subscribe-job", ({ jobId }) => {
+    socket.join(jobId);
+  });
+});
+
+server.listen(PORT);
+
+
 const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -52,6 +72,17 @@ app.use(express.json({
 }));
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+
+function emitProgress(jobId, step, message, percent = null) {
+  io.to(jobId).emit("ai-progress", {
+    jobId,
+    step,
+    message,
+    percent,
+    timestamp: Date.now()
+  });
+}
 
 
 function verifySignature(req, res, next) {
@@ -1134,11 +1165,17 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     const { userId, uploadedFoodAnalyzationRequestId, fileExt, fileContent } = req.body;
 
+    const jobId = uploadedFoodAnalyzationRequestId;
+
     const ackData = {
       status: "accepted",
-      note: "Processing, result will be sent to webhook",
+      note: "Processing",
       timestamp: Date.now(),
     };
+
+    emitProgress(jobId, "started", "Job accepted", 5);
+
+    emitProgress(jobId, "analyzing_image", "Analyzing image", 20);
 
     const ackSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
@@ -1243,6 +1280,13 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     if(!generatedData.isValidFood){
 
+      emitProgress(jobId, "rejected", "Invalid food detected", 100);
+
+      io.to(jobId).emit("ai-complete", {
+        jobId,
+        isValidFood: false
+      });
+
       const rejectionPayload = {
         userId,
         uploadedFoodAnalyzationRequestId,
@@ -1264,8 +1308,12 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     }
 
+    emitProgress(jobId, "enriching_foods", "Enriching calorie data", 50);
+
     const realFoodData = await enrichFoodsWithCalories(generatedData.detectedFoods)
 
+    emitProgress(jobId, "estimating_nutrients", "Estimating nutrients", 75);
+    
     const estimatedFoodData = JSON.stringify(generatedData.detectedFoods)
 
     const estimatedNutrients = await openai.responses.parse({
@@ -1331,7 +1379,12 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
         estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
     };
-    
+
+    emitProgress(jobId, "completed", "Analysis complete", 100);
+
+    io.to(jobId).emit("ai-complete", responseData);
+
+  
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
       .update(JSON.stringify(responseData))
@@ -1345,14 +1398,19 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
   } catch (error) {
 
     console.error("api error:", error);
+
+    io.to(uploadedFoodAnalyzationRequestId).emit("ai-error", {
+      message: "Processing failed"
+    });
+
     res.status(500).json({ success: false });
+
   }
 
 })
 
 
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+// // Start server
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server running at http://localhost:${PORT}`);
+// });
