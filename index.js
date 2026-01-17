@@ -36,7 +36,7 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 const io = new Server(server, {
-  path: "/socket",
+  path: "/socket.io",
   cors: { origin: "*" }
 });
 
