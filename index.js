@@ -1242,7 +1242,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
     console.error("api error:", error);
 
-    io.to(uploadedFoodAnalyzationRequestId).emit("ai-error", {
+    io.to(jobId).emit("ai-error", {
       message: "Processing failed"
     });
 
