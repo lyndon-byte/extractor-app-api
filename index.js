@@ -64,14 +64,6 @@ io.on("connection", (socket) => {
       console.log(`Socket ${socket.id} joined job ${jobId}`);
       socket.join(jobId);
 
-      if (jobQueue.has(jobId)) {
-        const job = jobQueue.get(jobId);
-        if (!job.started) {
-          job.started = true;
-          startAIProcess(jobId, job.fileData);
-        }
-      }
-
     });
 
     socket.on("disconnect", () => {
@@ -1226,7 +1218,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
   try {
 
-    const { userId, uploadedFoodAnalyzationRequestId, fileExt, fileContent } = req.body;
+    const { userId, jobId, fileExt, fileContent } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -1242,12 +1234,11 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    jobQueue.set(uploadedFoodAnalyzationRequestId, {
-      fileData: { userId, fileContent, fileExt },
-      started: false,
-    });
+     const fileData = { userId, fileContent, fileExt }
+      
+    startAIProcess(jobId, fileData);
 
-    console.log(`📝 Job queued: ${uploadedFoodAnalyzationRequestId}`);
+    console.log(`📝 Job queued: ${uploadedFoodAnalyzationRequestId}`); 
 
   } catch (error) {
 
@@ -1464,7 +1455,7 @@ async function startAIProcess(jobId, fileData) {
 
     const responseData = {
         userId,
-        uploadedFoodAnalyzationRequestId: jobId,
+        jobId,
         isValidFood: true,
         estimatedNutrients: estimatedNutrients.output_parsed,
         timestamp: Date.now()
