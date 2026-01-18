@@ -1359,16 +1359,11 @@ async function startAIProcess(jobId, fileData) {
 
     if(!generatedData.isValidFood){
 
-      emitProgress(jobId, "rejected", "Invalid food detected", 100);
-
-      io.to(jobId).emit("ai-complete", {
-        jobId,
-        isValidFood: false
-      });
+      emitProgress(jobId, "rejected", `${generatedData.invalidReason}`, 100);
 
       const rejectionPayload = {
         userId,
-        uploadedFoodAnalyzationRequestId,
+        jobId,
         isValidFood: false,
         invalidReason: generatedData.invalidReason,
         timestamp: Date.now()
