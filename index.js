@@ -167,6 +167,38 @@ function verifySignature(req, res, next) {
 }
 
 
+function calculateTotalCalories(foods) {
+  if (!Array.isArray(foods)) return 0;
+
+  return foods
+    .filter(food =>
+      food?.calories !== undefined &&
+      !isNaN(food.calories)
+    )
+    .reduce((total, food) => total + Number(food.calories), 0);
+}
+
+function roundFoodNutrients(foods) {
+
+  if (!Array.isArray(foods)) return [];
+
+  return foods.map(food => {
+    const roundedFood = {};
+
+    Object.entries(food).forEach(([key, value]) => {
+      if (key !== 'foodName' && !isNaN(value)) {
+        roundedFood[key] = Math.round(Number(value));
+      } else {
+        roundedFood[key] = value;
+      }
+    });
+
+    return roundedFood;
+  });
+
+}
+
+
 function getHeader(headers, name) {
   const found = headers.find((h) => h.name.toLowerCase() === name.toLowerCase());
   return found ? found.value : "";
@@ -1218,7 +1250,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
   try {
 
-    const { userId, jobId, fileExt, fileContent } = req.body;
+    const { userId, jobId, imageFileName, createdAt, updatedAt, fileExt, fileContent } = req.body;
 
     const ackData = {
       status: "accepted",
@@ -1234,7 +1266,7 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    const fileData = { userId, fileContent, fileExt }
+    const fileData = { userId, imageFileName, createdAt, updatedAt, fileContent, fileExt }
       
     startAIProcess(jobId, fileData);
 
@@ -1256,7 +1288,7 @@ async function startAIProcess(jobId, fileData) {
 
   console.log(`🚀 Starting AI process for job ${jobId}`);
 
-  const { userId, fileContent, fileExt } = fileData;
+  const { userId, imageFileName, createdAt, updatedAt, fileContent, fileExt } = fileData;
 
   try {
     
@@ -1446,17 +1478,34 @@ async function startAIProcess(jobId, fileData) {
       }
     });
 
-    const responseData = {
-        userId,
-        jobId,
-        isValidFood: true,
-        estimatedNutrients: estimatedNutrients.output_parsed,
+    const analyzedFileFoodData = estimatedNutrients.output_parsed
+
+    const detectedFoodsWithNutrients = roundFoodNutrients(analyzedFileFoodData.foods)
+    const totalCalories = calculateTotalCalories(detectedFoodsWithNutrients)
+
+    const meal = {
+        id: jobId,
+        image_file_name: imageFileName,
+        dish_description: analyzedFileFoodData.dishDescription,
+        total_calories: totalCalories,
+        detected_foods_with_nutrients: analyzedFileFoodData.foods,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        status: 'completed',
         timestamp: Date.now()
     };
 
     emitProgress(jobId, "completed", "Analysis complete", 100);
 
-    io.to(jobId).emit("ai-complete", responseData);
+    io.to(jobId).emit("ai-complete", meal);
+
+    const responseData = {
+      userId,
+      jobId,
+      isValidFood: true,
+      estimatedNutrients: analyzedFileFoodData,
+      timestamp: Date.now()
+   };
 
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
@@ -1466,7 +1515,6 @@ async function startAIProcess(jobId, fileData) {
     await axios.post(`${webhookDomain}/api/receive-estimated-calorie`, responseData, {
       headers: { "X-Signature": responseSignature },
     });
-
 
 
   } catch (err) {
