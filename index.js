@@ -1234,11 +1234,9 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
     res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-     const fileData = { userId, fileContent, fileExt }
+    const fileData = { userId, fileContent, fileExt }
       
     startAIProcess(jobId, fileData);
-
-    console.log(`📝 Job queued: ${uploadedFoodAnalyzationRequestId}`); 
 
   } catch (error) {
 
