@@ -22,15 +22,20 @@ if (!globalThis.File) {
 }
 
 
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + Date.now() + ext);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024, // 8 MB
   },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      cb(new Error("Only images are allowed"), false);
+    } else {
+      cb(null, true);
+    }
+  }
 });
 
-const upload = multer({ storage });
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
@@ -46,7 +51,7 @@ io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
 
   try {
-    const user = await verifyLaravelToken(token); // call Laravel API
+    const user = await verifyToken(token); 
     socket.user = user; 
     next();
   } catch (err) {
@@ -110,7 +115,7 @@ function emitProgress(jobId, step, message, percent = null) {
 }
 
 
-async function verifyLaravelToken(token) {
+async function verifyToken(token) {
 
   if (!token) throw new Error("No token provided");
 
@@ -138,6 +143,27 @@ async function verifyLaravelToken(token) {
 
     throw new Error(err.message || "Token verification failed");
   }
+}
+
+function auth(req, res, next) {
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  verifyToken(token)
+    .then(user => {
+      req.user = user; // attach Laravel user
+      next();
+    })
+    .catch(err => {
+      console.error("auth failed:", err.message);
+      res.status(401).json({ message: "Unauthorized" });
+    });
 }
 
 function verifySignature(req, res, next) {
@@ -1246,29 +1272,36 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
+app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) => {
 
   try {
 
-    const { userId, jobId, imageFileName, createdAt, updatedAt, fileExt, fileContent } = req.body;
+    // const { userId, jobId, imageFileName, createdAt, updatedAt, fileExt, fileContent } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const jobId = crypto.randomUUID();
+    const user = req.user;
+
+    const buffer = req.file.buffer;
+    const mimeType = req.file.mimetype; 
+    const fileExt = mimeType.split("/")[1];
+    const fileContent = buffer.toString("base64");
 
     const ackData = {
+      jobId,
       status: "accepted",
       note: "Processing",
       timestamp: Date.now(),
     };
 
-    const ackSignature = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(JSON.stringify(ackData))
-      .digest("hex");
-  
-    res.setHeader("X-Signature", ackSignature);
     res.status(200).json(ackData);
 
-    const fileData = { userId, imageFileName, createdAt, updatedAt, fileContent, fileExt }
+    const fileData = { fileContent, fileExt }
       
-    startAIProcess(jobId, fileData);
+    startAIProcess(user.id,jobId,fileData);
 
   } catch (error) {
 
@@ -1284,11 +1317,11 @@ app.post("/api/analyze-food-image", verifySignature , async (req, res) => {
 
 })
 
-async function startAIProcess(jobId, fileData) {
+async function startAIProcess(userId,jobId,fileData) {
 
   console.log(`🚀 Starting AI process for job ${jobId}`);
 
-  const { userId, imageFileName, createdAt, updatedAt, fileContent, fileExt } = fileData;
+  const { fileContent, fileExt } = fileData;
 
   try {
     
@@ -1483,27 +1516,24 @@ async function startAIProcess(jobId, fileData) {
     const detectedFoodsWithNutrients = roundFoodNutrients(analyzedFileFoodData.foods)
     const totalCalories = calculateTotalCalories(detectedFoodsWithNutrients)
 
-    const meal = {
+    const mealData = {
         id: jobId,
-        image_file_name: imageFileName,
         dish_description: analyzedFileFoodData.dishDescription,
         total_calories: totalCalories,
         detected_foods_with_nutrients: analyzedFileFoodData.foods,
-        created_at: createdAt,
-        updated_at: updatedAt,
-        status: 'completed',
+        status: 'complete',
         timestamp: Date.now()
     };
 
     emitProgress(jobId, "completed", "Analysis complete", 100);
 
-    io.to(jobId).emit("ai-complete", meal);
+    io.to(jobId).emit("ai-complete", mealData);
 
     const responseData = {
       userId,
       jobId,
-      isValidFood: true,
       estimatedNutrients: analyzedFileFoodData,
+      isValidFood: true,
       timestamp: Date.now()
    };
 
