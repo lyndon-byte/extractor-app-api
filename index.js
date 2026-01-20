@@ -128,20 +128,36 @@ async function verifyToken(token) {
     });
 
     if (data.message === "Unauthenticated.") {
-
       throw new Error("Invalid token");
-
     }
 
-    return data;
+    if (data.verified === false) {
+      const error = new Error("User account is not verified");
+      error.code = "USER_NOT_VERIFIED";
+      throw error;
+    }
+
+    if (!data.user) {
+      throw new Error("Authenticated user data missing");
+    }
+
+    return data.user;
 
   } catch (err) {
 
-    if (err.response && err.response.status === 401) {
-      throw new Error("Unauthorized token");
+    if (err.response) {
+      
+      if (err.response.status === 401) {
+        throw new Error("Unauthorized token");
+      }
+
+      if (err.response.status === 403) {
+        throw new Error("Forbidden");
+      }
     }
 
     throw new Error(err.message || "Token verification failed");
+
   }
 }
 
