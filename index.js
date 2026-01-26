@@ -120,43 +120,18 @@ async function verifyToken(token) {
   if (!token) throw new Error("No token provided");
 
   try {
-    const { data } = await axios.get("https://www.kaloreea.io/api/user", {
+    const { data } = await axios.get("https://www.kaloreea.io/api/check-account", {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
     });
 
-    if (data.message === "Unauthenticated.") {
-      throw new Error("Invalid token");
-    }
-
-    if (data.verified === false) {
-      const error = new Error("User account is not verified");
-      error.code = "USER_NOT_VERIFIED";
-      throw error;
-    }
-
-    if (!data.user) {
-      throw new Error("Authenticated user data missing");
-    }
-
     return data.user;
 
   } catch (err) {
 
-    if (err.response) {
-      
-      if (err.response.status === 401) {
-        throw new Error("Unauthorized token");
-      }
-
-      if (err.response.status === 403) {
-        throw new Error("Forbidden");
-      }
-    }
-
-    throw new Error(err.message || "Token verification failed");
+    throw new Error(err.message);
 
   }
 }
@@ -173,12 +148,11 @@ function auth(req, res, next) {
 
   verifyToken(token)
     .then(user => {
-      req.user = user; // attach Laravel user
+      req.user = user; 
       next();
     })
     .catch(err => {
-      console.error("auth failed:", err.message);
-      res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({ message: err.message });
     });
 }
 
