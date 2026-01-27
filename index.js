@@ -117,7 +117,13 @@ function emitProgress(jobId, step, message, percent = null) {
 
 async function verifyToken(token) {
 
-  if (!token) throw new Error("No token provided");
+  if (!token) {
+    throw {
+      status: 401,
+      error_code: "NO_TOKEN",
+      message: "No token provided",
+    };
+  }
 
   try {
     const { data } = await axios.get("https://www.kaloreea.io/api/check-account", {
@@ -131,7 +137,23 @@ async function verifyToken(token) {
 
   } catch (err) {
 
-    throw new Error(err.message);
+    if (err.response) {
+
+      const { status, data } = err.response;
+
+      throw {
+        status,
+        error_code: data.error_code || "UNKNOWN_ERROR",
+        message: data.message || "Request failed",
+        meta: data,
+      };
+    }
+
+    throw {
+      status: 500,
+      error_code: "AUTH_SERVICE_UNAVAILABLE",
+      message: "Authentication service unreachable",
+    };
 
   }
 }
@@ -141,7 +163,10 @@ function auth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({
+      error_code: "UNAUTHENTICATED",
+      message: "Missing or invalid Authorization header",
+    });
   }
 
   const token = authHeader.split(" ")[1];
@@ -152,7 +177,10 @@ function auth(req, res, next) {
       next();
     })
     .catch(err => {
-      res.status(401).json({ message: err });
+      res.status(err.status || 401).json({
+        error_code: err.error_code,
+        message: err.message,
+      });
     });
 }
 
