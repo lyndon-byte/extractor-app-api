@@ -1317,7 +1317,7 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     res.status(200).json(ackData);
 
-    const fileData = { fileContent, fileExt }
+    const fileData = { fileContent, fileExt, mimeType }
       
     startAIProcess(user.id,jobId,fileData);
 
@@ -1447,6 +1447,7 @@ async function startAIProcess(userId,jobId,fileData) {
       const rejectionPayload = {
         userId,
         jobId,
+        fileData,
         isValidFood: false,
         invalidReason: generatedData.invalidReason,
         timestamp: Date.now()
@@ -1550,6 +1551,7 @@ async function startAIProcess(userId,jobId,fileData) {
     const responseData = {
       userId,
       jobId,
+      fileData,
       estimatedNutrients: analyzedFileFoodData,
       isValidFood: true,
       timestamp: Date.now()
