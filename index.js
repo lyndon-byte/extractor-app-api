@@ -77,8 +77,10 @@ io.on("connection", (socket) => {
     
 });
 
-server.listen(PORT);
 
+server.listen(PORT, () => {
+  console.log("API + Socket running on port 3000");
+});
 
 const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
 
