@@ -1562,6 +1562,9 @@ async function startAIProcess(userId,jobId,fileData) {
       timestamp: Date.now()
    };
 
+   console.log('completed')
+   console.log(responseData)
+
     const responseSignature = crypto
       .createHmac("sha256", process.env.SHARED_SECRET)
       .update(JSON.stringify(responseData))
