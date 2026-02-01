@@ -47,32 +47,32 @@ const io = new Server(server, {
 
 const jobQueue = new Map();
 
-io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
-  console.log('token:' + token)
-  try {
-    const user = await verifyToken(token); 
-    socket.user = user; 
-    next();
-  } catch (err) {
-    console.error("WebSocket auth failed:", err.message);
-    next(new Error("Unauthorized"));
-  }
-});
+// io.use(async (socket, next) => {
+//   const token = socket.handshake.auth.token;
+//   console.log('token:' + token)
+//   try {
+//     const user = await verifyToken(token); 
+//     socket.user = user; 
+//     next();
+//   } catch (err) {
+//     console.error("WebSocket auth failed:", err.message);
+//     next(new Error("Unauthorized"));
+//   }
+// });
 
 io.on("connection", (socket) => {
 
-    console.log("✅ Socket connected:", socket.id);
+    console.log("✅ Socket connected:");
 
     socket.on("subscribe-job", ({ jobId }) => {
 
-      console.log(`Socket ${socket.id} joined job ${jobId}`);
+      console.log(`Socket joined job ${jobId}`);
       socket.join(jobId);
 
     });
 
     socket.on("disconnect", () => {
-      console.log("⚠️ Socket disconnected:", socket.id);
+      console.log("⚠️ Socket disconnected:");
     });
     
 });
