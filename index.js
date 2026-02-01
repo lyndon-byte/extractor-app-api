@@ -49,7 +49,7 @@ const jobQueue = new Map();
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
-
+  console.log('token:' + token)
   try {
     const user = await verifyToken(token); 
     socket.user = user; 
@@ -1536,7 +1536,7 @@ async function startAIProcess(userId,jobId,fileData) {
     const totalCalories = calculateTotalCalories(detectedFoodsWithNutrients)
 
     const mealData = {
-        id: jobId,
+        jobId,
         dish_description: analyzedFileFoodData.dishDescription,
         total_calories: totalCalories,
         detected_foods_with_nutrients: analyzedFileFoodData.foods,
