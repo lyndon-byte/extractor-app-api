@@ -1580,6 +1580,13 @@ async function startAIProcess(userId,jobId,fileData) {
 }
 
 
+app.get("/api/socket-status", (req, res) => {
+  res.json({
+    connected: io.engine.clientsCount > 0,
+    clients: io.engine.clientsCount,
+  });
+});
+
 // // Start server
 // app.listen(PORT, () => {
 //   console.log(`🚀 Server running at http://localhost:${PORT}`);
