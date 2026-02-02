@@ -1291,24 +1291,7 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",// Log request arrival
-(req, res, next) => {
-  req.startTime = Date.now();
-  console.log('⏱️ Request arrived');
-  next();
-},
-upload.single('file'),
-// Log after multer
-(req, res, next) => {
-  console.log(`⏱️ Multer done: ${Date.now() - req.startTime}ms, file size: ${req.file?.size} bytes`);
-  next();
-},
-auth,
-// Log after auth
-(req, res, next) => {
-  console.log(`⏱️ Auth done: ${Date.now() - req.startTime}ms`);
-  next();
-}, async (req, res) => {
+app.post("/api/analyze-food-image",upload.single('file'), async (req, res) => {
 
   try {
     
@@ -1317,7 +1300,7 @@ auth,
     }
 
     const jobId = crypto.randomUUID();
-    const user = req.user;
+    // const user = req.user;
 
     const ackData = {
       jobId,
@@ -1338,7 +1321,7 @@ auth,
 
         req.file.buffer = null;
 
-        await startAIProcess(user.id, jobId, fileData);
+        await startAIProcess(16, jobId, fileData);
 
       } catch (err) {
         console.error("Background processing error:", err);
