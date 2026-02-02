@@ -1318,9 +1318,19 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     res.status(200).json(ackData);
 
-    const fileData = { fileContent, fileExt, mimeType }
+    setImmediate(async () => {
+
+      try {
+
+        const fileData = { fileContent, fileExt, mimeType };
+        await startAIProcess(user.id, jobId, fileData);
+
+      } catch (err) {
+
+        console.error(`Background Job ${jobId} failed:`, err);
+      }
       
-    startAIProcess(user.id,jobId,fileData);
+    });
 
   } catch (error) {
 
