@@ -1307,7 +1307,6 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
     const buffer = req.file.buffer;
     const mimeType = req.file.mimetype; 
     const fileExt = mimeType.split("/")[1];
-    const fileContent = buffer.toString("base64");
 
     const ackData = {
       jobId,
@@ -1322,6 +1321,7 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
       try {
 
+        const fileContent = buffer.toString("base64");
         const fileData = { fileContent, fileExt, mimeType };
         await startAIProcess(user.id, jobId, fileData);
 
@@ -1329,7 +1329,7 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
         console.error(`Background Job ${jobId} failed:`, err);
       }
-      
+
     });
 
   } catch (error) {
