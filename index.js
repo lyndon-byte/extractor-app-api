@@ -1294,8 +1294,6 @@ async function enrichFoodsWithCalories(detectedFoods) {
 app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) => {
 
   try {
-
-    // const { userId, jobId, imageFileName, createdAt, updatedAt, fileExt, fileContent } = req.body;
     
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
@@ -1304,15 +1302,10 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
     const jobId = crypto.randomUUID();
     const user = req.user;
 
-    const buffer = req.file.buffer;
-    const mimeType = req.file.mimetype; 
-    const fileExt = mimeType.split("/")[1];
-
     const ackData = {
       jobId,
       status: "accepted",
       note: "Processing",
-      timestamp: Date.now(),
     };
 
     res.status(200).json(ackData);
@@ -1321,6 +1314,9 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
       try {
 
+        const buffer = req.file.buffer;
+        const mimeType = req.file.mimetype; 
+        const fileExt = mimeType.split("/")[1];
         const fileContent = buffer.toString("base64");
         const fileData = { fileContent, fileExt, mimeType };
         await startAIProcess(user.id, jobId, fileData);
