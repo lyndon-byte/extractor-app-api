@@ -1300,7 +1300,8 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
     }
 
     const jobId = crypto.randomUUID();
-  
+    const user = req.user;
+
     const ackData = {
       jobId,
       status: "accepted",
@@ -1309,15 +1310,24 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     res.status(200).json(ackData);
 
-    const user = req.user;
-    const buffer = req.file.buffer;
-    const mimeType = req.file.mimetype; 
-    const fileExt = mimeType.split("/")[1];
-    const fileContent = buffer.toString("base64");
+    res.end(); 
 
-    const fileData = { fileContent, fileExt, mimeType };
-    
-    startAIProcess(user.id, jobId, fileData);
+  
+    setImmediate(async () => {
+      try {
+
+        const fileContent = req.file.buffer.toString("base64");
+        const fileExt = req.file.mimetype.split("/")[1];
+        const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
+
+        req.file.buffer = null;
+
+        await startAIProcess(user.id, jobId, fileData);
+
+      } catch (err) {
+        console.error("Background processing error:", err);
+      }
+    });
 
 
   } catch (error) {
