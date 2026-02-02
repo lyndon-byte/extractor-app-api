@@ -47,20 +47,18 @@ const io = new Server(server, {
 
 const jobQueue = new Map();
 
-io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
-  console.log('token:' + token)
-
-  try { 
-    
-    socket.user = { id: 'test-user-123', email: 'test@test.com' }; // Mock user
-    next();
-
-  } catch (err) {
-    console.error("WebSocket auth failed:", err.message);
-    next(new Error("Unauthorized"));
-  }
-});
+// io.use(async (socket, next) => {
+//   const token = socket.handshake.auth.token;
+//   console.log('token:' + token)
+//   try {
+//     const user = await verifyToken(token); 
+//     socket.user = user; 
+//     next();
+//   } catch (err) {
+//     console.error("WebSocket auth failed:", err.message);
+//     next(new Error("Unauthorized"));
+//   }
+// });
 
 io.on("connection", (socket) => {
 
