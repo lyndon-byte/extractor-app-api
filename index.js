@@ -1324,7 +1324,7 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     const fileData = { fileContent, fileExt, mimeType }
       
-    startAIProcess(user.id,jobId,fileData);
+    startAIProcess(user.id,req.jobId,fileData);
 
   } catch (error) {
 
