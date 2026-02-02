@@ -1322,9 +1322,9 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     res.status(200).json(ackData);
 
-    const fileData = { fileContent, fileExt, mimeType }
+    // const fileData = { fileContent, fileExt, mimeType }
       
-    startAIProcess(user.id,jobId,fileData);
+    // startAIProcess(user.id,jobId,fileData);
 
   } catch (error) {
 
