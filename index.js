@@ -77,10 +77,6 @@ io.on("connection", (socket) => {
     
 });
 
-io.engine.on("connection", (rawSocket) => {
-  console.log("🔥 Engine.IO connection received");
-});
-
 server.listen(PORT, () => {
   console.log("API + Socket running on port 3000");
 });
