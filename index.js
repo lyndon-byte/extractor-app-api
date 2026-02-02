@@ -1308,9 +1308,8 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
       note: "Processing",
     };
 
-    res.status(200).json(ackData);
-
-    res.end(); 
+    res.status(202).json(ackData);
+    res.flushHeaders(); 
 
   
     setImmediate(async () => {
