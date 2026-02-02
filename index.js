@@ -1309,8 +1309,6 @@ app.post("/api/analyze-food-image",upload.single('file'),auth, async (req, res) 
 
     res.status(200).json(ackData);
 
-    res.end(); 
-
     const user = req.user;
     const buffer = req.file.buffer;
     const mimeType = req.file.mimetype; 
