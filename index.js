@@ -1316,7 +1316,7 @@ app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
 
     req.file.buffer = null;
 
-    startAIProcess(16, jobId, fileData);
+    await startAIProcess(16, jobId, fileData);
 
 
   } catch (error) {
