@@ -47,18 +47,18 @@ const io = new Server(server, {
 
 const jobQueue = new Map();
 
-// io.use(async (socket, next) => {
-//   const token = socket.handshake.auth.token;
-//   console.log('token:' + token)
-//   try {
-//     const user = await verifyToken(token); 
-//     socket.user = user; 
-//     next();
-//   } catch (err) {
-//     console.error("WebSocket auth failed:", err.message);
-//     next(new Error("Unauthorized"));
-//   }
-// });
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  console.log('token:' + token)
+  try {
+    const user = await verifyToken(token); 
+    socket.user = user; 
+    next();
+  } catch (err) {
+    console.error("WebSocket auth failed:", err.message);
+    next(new Error("Unauthorized"));
+  }
+});
 
 io.on("connection", (socket) => {
 
@@ -1291,7 +1291,7 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",upload.single('file'), async (req, res) => {
+app.post("/api/analyze-food-image",async (req, res) => {
 
   try {
     
@@ -1308,36 +1308,34 @@ app.post("/api/analyze-food-image",upload.single('file'), async (req, res) => {
       note: "Processing",
     };
 
-    res.status(202).json(ackData);
-    res.flushHeaders(); 
-
+    res.status(200).json(ackData);
   
-    setImmediate(async () => {
-      try {
+    // setImmediate(async () => {
+    //   try {
 
-        const fileContent = req.file.buffer.toString("base64");
-        const fileExt = req.file.mimetype.split("/")[1];
-        const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
+    //     const fileContent = req.file.buffer.toString("base64");
+    //     const fileExt = req.file.mimetype.split("/")[1];
+    //     const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
 
-        req.file.buffer = null;
+    //     req.file.buffer = null;
 
-        await startAIProcess(16, jobId, fileData);
+    //     await startAIProcess(user.id, jobId, fileData);
 
-      } catch (err) {
-        console.error("Background processing error:", err);
-      }
-    });
+    //   } catch (err) {
+    //     console.error("Background processing error:", err);
+    //   }
+    // });
 
 
   } catch (error) {
 
     console.error("api error:", error);
 
-    io.to(jobId).emit("ai-error", {
-      message: "Processing failed"
-    });
+    // io.to(jobId).emit("ai-error", {
+    //   message: "Processing failed"
+    // });
 
-    res.status(500).json({ success: false });
+    // res.status(500).json({ success: false });
 
   }
 
