@@ -1299,11 +1299,11 @@ app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) =
     return res.status(400).json({ message: "No file uploaded" });
   }
 
-  const jobId = req.body.jobId;
+  const jobId = crypto.randomUUID();
   const user = req.user;
 
   res.status(200).json({
-    
+    jobId,
     status: "file accepted",
     note: "Processing",
 
