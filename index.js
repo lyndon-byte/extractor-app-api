@@ -1309,17 +1309,14 @@ app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
 
   try {
     
-    setImmediate(async () => {
 
-        const fileContent = req.file.buffer.toString("base64");
-        const fileExt = req.file.mimetype.split("/")[1];
-        const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
+    const fileContent = req.file.buffer.toString("base64");
+    const fileExt = req.file.mimetype.split("/")[1];
+    const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
 
-        req.file.buffer = null;
+    req.file.buffer = null;
 
-        await startAIProcess(16, jobId, fileData);
-
-    });
+    startAIProcess(16, jobId, fileData);
 
 
   } catch (error) {
