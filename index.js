@@ -1291,51 +1291,41 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",async (req, res) => {
+app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) => {
+  
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded" });
+  }
+
+  const jobId = req.jobId;
+  const user = req.user;
+
+  res.status(200).json({
+    
+    status: "file accepted",
+    note: "Processing",
+
+  });
 
   try {
     
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
+    setImmediate(async () => {
 
-    const jobId = crypto.randomUUID();
-    // const user = req.user;
+        const fileContent = req.file.buffer.toString("base64");
+        const fileExt = req.file.mimetype.split("/")[1];
+        const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
 
-    const ackData = {
-      jobId,
-      status: "accepted",
-      note: "Processing",
-    };
+        req.file.buffer = null;
 
-    res.status(200).json(ackData);
-  
-    // setImmediate(async () => {
-    //   try {
+        await startAIProcess(user.id, jobId, fileData);
 
-    //     const fileContent = req.file.buffer.toString("base64");
-    //     const fileExt = req.file.mimetype.split("/")[1];
-    //     const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
-
-    //     req.file.buffer = null;
-
-    //     await startAIProcess(user.id, jobId, fileData);
-
-    //   } catch (err) {
-    //     console.error("Background processing error:", err);
-    //   }
-    // });
+    });
 
 
   } catch (error) {
 
     console.error("api error:", error);
-
-    // io.to(jobId).emit("ai-error", {
-    //   message: "Processing failed"
-    // });
-
-    // res.status(500).json({ success: false });
+    res.status(500).json({ success: false });
 
   }
 
