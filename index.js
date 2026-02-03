@@ -1297,7 +1297,7 @@ app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
     return res.status(400).json({ message: "No file uploaded" });
   }
 
-  const jobId = req.jobId;
+  const jobId = req.body.jobId;
   // const user = req.user;
 
   res.status(200).json({
