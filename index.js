@@ -47,18 +47,18 @@ const io = new Server(server, {
 
 const jobQueue = new Map();
 
-io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
-  console.log('token:' + token)
-  try {
-    const user = await verifyToken(token); 
-    socket.user = user; 
-    next();
-  } catch (err) {
-    console.error("WebSocket auth failed:", err.message);
-    next(new Error("Unauthorized"));
-  }
-});
+// io.use(async (socket, next) => {
+//   const token = socket.handshake.auth.token;
+//   console.log('token:' + token)
+//   try {
+//     const user = await verifyToken(token); 
+//     socket.user = user; 
+//     next();
+//   } catch (err) {
+//     console.error("WebSocket auth failed:", err.message);
+//     next(new Error("Unauthorized"));
+//   }
+// });
 
 io.on("connection", (socket) => {
 
@@ -1291,14 +1291,14 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) => {
+app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
   
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
   }
 
   const jobId = req.jobId;
-  const user = req.user;
+  // const user = req.user;
 
   res.status(200).json({
     
@@ -1317,7 +1317,7 @@ app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) =
 
         req.file.buffer = null;
 
-        await startAIProcess(user.id, jobId, fileData);
+        await startAIProcess(16, jobId, fileData);
 
     });
 
