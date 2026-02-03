@@ -52,14 +52,8 @@ io.use(async (socket, next) => {
   console.log('token:' + token)
   try {
 
-    // const user = await verifyToken(token);
-     
-    socket.user = {
-      id: 1,
-      name: "Test User",
-      email: "test@example.com",
-    };
-
+    const user = await verifyToken(token);
+    socket.user = user
     next();
 
   } catch (err) {
@@ -1299,14 +1293,14 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
+app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) => {
   
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
   }
 
   const jobId = req.body.jobId;
-  // const user = req.user;
+  const user = req.user;
 
   res.status(200).json({
     
@@ -1315,24 +1309,13 @@ app.post("/api/analyze-food-image",upload.single('file'),async (req, res) => {
 
   });
 
-  try {
-    
+  const fileContent = req.file.buffer.toString("base64");
+  const fileExt = req.file.mimetype.split("/")[1];
+  const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
 
-    const fileContent = req.file.buffer.toString("base64");
-    const fileExt = req.file.mimetype.split("/")[1];
-    const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
+  req.file.buffer = null;
 
-    req.file.buffer = null;
-
-    await startAIProcess(16, jobId, fileData);
-
-
-  } catch (error) {
-
-    console.error("api error:", error);
-    res.status(500).json({ success: false });
-
-  }
+  startAIProcess(user.id, jobId, fileData);
 
 })
 
