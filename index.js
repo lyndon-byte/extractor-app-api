@@ -7,6 +7,8 @@ import multer from "multer";
 import {estimationSchema, estimatedNutrientsSchema} from "./Schema/schema.js";
 import { Server } from "socket.io";
 import http from "http"
+import jwt from "jsonwebtoken";
+
 
 dotenv.config(); 
 
@@ -83,7 +85,7 @@ function emitProgress(jobId, step, message, percent = null) {
   });
 }
 
-async function verifyToken(token) {
+function verifyToken(token) {
 
   if (!token) {
     throw {
@@ -94,39 +96,20 @@ async function verifyToken(token) {
   }
 
   try {
-    const { data } = await axios.get("https://www.kaloreea.io/api/check-account", {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
 
-    return data.user;
+    const payload = jwt.verify(token, process.env.NODE_JWT_SECRET);
+    return { id: payload.sub, email: payload.email, ...payload };
 
   } catch (err) {
-
-    if (err.response) {
-
-      const { status, data } = err.response;
-
-      throw {
-        status,
-        error_code: data.error_code || "UNKNOWN_ERROR",
-        message: data.message || "Request failed",
-        meta: data,
-      };
-    }
-
     throw {
-      status: 500,
-      error_code: "AUTH_SERVICE_UNAVAILABLE",
-      message: "Authentication service unreachable",
+      status: 401,
+      error_code: "INVALID_TOKEN",
+      message: err.message || "Invalid or expired token",
     };
-
   }
 }
 
-function auth(req, res, next) {
+export async function auth(req, res, next) {
 
   const authHeader = req.headers.authorization;
 
@@ -139,17 +122,16 @@ function auth(req, res, next) {
 
   const token = authHeader.split(" ")[1];
 
-  verifyToken(token)
-    .then(user => {
-      req.user = user; 
-      next();
-    })
-    .catch(err => {
-      res.status(err.status || 401).json({
-        error_code: err.error_code,
-        message: err.message,
-      });
+  try {
+    const user = verifyToken(token);
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(err.status || 401).json({
+      error_code: err.error_code,
+      message: err.message,
     });
+  }
 }
 
 
