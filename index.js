@@ -97,7 +97,7 @@ function verifyToken(token) {
 
   try {
 
-    const payload = jwt.verify(token, process.env.NODE_JWT_SECRET);
+    const payload = jwt.verify(token, process.env.SHARED_SECRET);
     return { id: payload.sub, email: payload.email, ...payload };
 
   } catch (err) {
