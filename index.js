@@ -47,7 +47,7 @@ io.use(async (socket, next) => {
 
   try {
 
-    const user = await verifyToken(token);
+    const user = verifyToken(token);
     socket.user = user
     next();
 
