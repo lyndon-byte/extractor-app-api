@@ -222,7 +222,6 @@ app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) =
     jobId,
     status: "file accepted",
     note: "Processing",
-
   });
 
   const fileContent = req.file.buffer.toString("base64");
