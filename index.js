@@ -8,7 +8,7 @@ import {estimationSchema, estimatedNutrientsSchema} from "./Schema/schema.js";
 import { Server } from "socket.io";
 import http from "http"
 import jwt from "jsonwebtoken";
-
+import rateLimit from 'express-rate-limit'
 
 dotenv.config(); 
 
@@ -24,6 +24,14 @@ const upload = multer({
       cb(null, true);
     }
   }
+});
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100, 
+  message: "Too many requests from this IP, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const app = express();
@@ -109,7 +117,9 @@ function verifyToken(token) {
   }
 }
 
-export async function auth(req, res, next) {
+
+
+async function auth(req, res, next) {
 
   const authHeader = req.headers.authorization;
 
@@ -209,7 +219,7 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",upload.single('file'),auth,async (req, res) => {
+app.post("/api/analyze-food-image",limiter,upload.single('file'),auth,async (req, res) => {
   
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
