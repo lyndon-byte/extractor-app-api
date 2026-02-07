@@ -26,6 +26,14 @@ const upload = multer({
   }
 });
 
+const app = express();
+
+app.set('trust proxy', 1); 
+
+app.use(express.json({
+  limit: "50mb"
+}));
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100, 
@@ -34,11 +42,6 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-const app = express();
-
-app.use(express.json({
-  limit: "50mb"
-}));
 
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
