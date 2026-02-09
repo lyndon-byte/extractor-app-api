@@ -185,8 +185,11 @@ async function userDailyLimit(req, res, next){
 
     next();
   } catch (err) {
-    console.error("Rate limit error:", err);
-    res.status(500).json({ error: "Internal server error" });
+
+    res.status(401).json({
+      error_code: 'DAILY_SCAN_LIMIT_REACHED',
+      message: 'Daily request limit reached',
+    });
   }
   
 };
