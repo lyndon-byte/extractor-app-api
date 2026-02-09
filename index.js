@@ -292,17 +292,7 @@ async function startAIProcess(userId,jobId,fileData) {
           Use a common, generic food name.
           
           Avoid brand names or overly specific culinary terms unless visually obvious.
-          
-          servingSizeUnit
-          
-          Use standard weight units only (g or oz).
-          Use a single unit consistently per food item.
-          
-          [servingSize]:
-          
-          Provide a numeric estimate of the food’s weight in the specified unit.
-          The value must be a number, not a string.
-          
+  
           [householdServingFullText]:
           
           Provide a human-readable serving approximation (e.g., “1 cup”, “2 slices”, “1 medium piece”).
@@ -392,23 +382,46 @@ async function startAIProcess(userId,jobId,fileData) {
           role: "system",
           content: `
           
-            You are a nutrition calculation assistant.
-            
-            Your task is to calculate nutrient values for each detected food item based on:
-            
-            1. The AI-estimated serving sizes and units (from estimatedFoodData).
-            2. The reference USDA food data (from realFoodData), which provides nutrient values per standard serving.
-            
-            For each food item:
-            
-            - Use the estimated serving size and unit to scale nutrient values from the USDA reference data.
-            - Compare the estimated serving size against the USDA standard serving size and weight.
-            - Calculate all available nutrients proportionally (e.g., calories, protein, fat, carbohydrates, fiber, sugar, sodium).
-            - If a nutrient exists in USDA data but results in zero after calculation, return 0 (not null or omitted).
-            - Do not modify the original food name or other metadata.
-            
-            Your response must strictly follow the provided JSON schema.
-            Do not include explanations, commentary, or any extra fields.
+          You are a nutrition calculation engine that performs precise portion-based nutrient scaling.
+
+          Your task is to compute nutrient values for each detected food item by scaling USDA reference nutrients to match the AI-estimated household serving.
+          
+          Each food item includes:
+          
+          • estimatedFoodData → an AI-estimated household serving (e.g., "3 cups", "1.5 bowls")
+          • realFoodData → USDA reference data that represents nutrients for a specific real portion (e.g., nutrients for "1 bowl")
+          
+          Core rule:
+          
+          You must treat the USDA portion as the base reference portion and scale all nutrients proportionally to match the AI-estimated serving.
+          
+          For each food item:
+          
+          1. Identify the USDA reference portion and its associated nutrient values.
+          
+          2. Interpret the AI-estimated household serving as a multiple of the USDA reference portion.
+          
+          3. Compute a scaling factor:
+          
+             scalingFactor = estimatedServing / USDAReferenceServing
+          
+          4. Apply proportional scaling to ALL nutrients:
+          
+             calculatedNutrient = scalingFactor × USDANutrient
+          
+          5. Calories are critical and must be computed with high numerical accuracy using the same proportional formula.
+          
+          6. Preserve decimal precision appropriately and avoid unnecessary rounding during intermediate calculations.
+          
+          7. If a nutrient exists in USDA data and the result of scaling is zero, return 0 (never null or omitted).
+          
+          8. Do not modify food names, identifiers, or metadata.
+          
+          9. Do not invent or infer missing nutrients — only scale nutrients present in USDA data.
+          
+          Your output must strictly match the provided JSON schema.
+          Return only structured JSON with no explanations or extra text.
+          
         `
         },
         {
@@ -446,12 +459,12 @@ async function startAIProcess(userId,jobId,fileData) {
     const totalCalories = calculateTotalCalories(detectedFoodsWithNutrients)
 
     const mealData = {
-        jobId,
-        dish_description: analyzedFileFoodData.dishDescription,
-        total_calories: totalCalories,
-        detected_foods_with_nutrients: analyzedFileFoodData.foods,
-        status: 'complete',
-        timestamp: Date.now()
+      jobId,
+      dish_description: analyzedFileFoodData.dishDescription,
+      total_calories: totalCalories,
+      detected_foods_with_nutrients: analyzedFileFoodData.foods,
+      status: 'complete',
+      timestamp: Date.now()
     };
 
     emitProgress(jobId, "completed", "Analysis complete", 100);

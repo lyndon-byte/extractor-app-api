@@ -25,14 +25,6 @@
                 "type": "string",
                 "description": "Common name of the detected food item (e.g., egg, fish, chicken breast)."
               },
-              "servingSizeUnit": {
-                "type": "string",
-                "description": "Unit of measurement used for the serving size estimate (e.g., g, oz)."
-              },
-              "servingSize": {
-                "type": "number",
-                "description": "Estimated numeric quantity of the food in the specified unit, inferred visually from the image."
-              },
               "householdServingFullText": {
                 "type": "string",
                 "description": "Human-readable household serving approximation (e.g., '1 cup', '2 slices', '1 medium piece')."
@@ -40,8 +32,6 @@
             },
             "required": [
               "foodName",
-              "servingSizeUnit",
-              "servingSize",
               "householdServingFullText"
             ],
             "additionalProperties": false
