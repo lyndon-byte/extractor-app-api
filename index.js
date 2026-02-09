@@ -9,6 +9,17 @@ import { Server } from "socket.io";
 import http from "http"
 import jwt from "jsonwebtoken";
 import rateLimit from 'express-rate-limit'
+import { createClient } from "redis"
+
+const redis = createClient({
+   
+  url: process.env.REDIS_URL
+
+});
+
+await redis.connect();
+
+const USER_DAILY_LIMIT = process.env.USER_DAILY_LIMIT;
 
 dotenv.config(); 
 
@@ -147,6 +158,39 @@ async function auth(req, res, next) {
   }
 }
 
+async function userDailyLimit(req, res, next){
+
+  try {
+
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `rate_limit:${userId}:${today}`;
+
+    const count = await redis.incr(key);
+
+    if (count === 1) {
+      await redis.expire(key, 60 * 60 * 24);
+    }
+
+    if (count > USER_DAILY_LIMIT) {
+      return res.status(429).json({
+        error: "Daily request limit reached",
+      });
+    }
+
+    next();
+  } catch (err) {
+    console.error("Rate limit error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+  
+};
+
 
 function calculateTotalCalories(foods) {
 
@@ -222,7 +266,11 @@ async function enrichFoodsWithCalories(detectedFoods) {
   return JSON.stringify(realFoodData);
 }
 
-app.post("/api/analyze-food-image",limiter,upload.single('file'),auth,async (req, res) => {
+app.post("/api/analyze-food-image",
+  limiter,upload.single('file'),
+  auth,
+  userDailyLimit,
+  async (req, res) => {
   
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
