@@ -178,18 +178,18 @@ async function userDailyLimit(req, res, next){
     }
 
     if (count > USER_DAILY_LIMIT) {
-      return res.status(429).json({
-        error: "Daily request limit reached",
+      return res.status(401).json({
+        error_code: 'DAILY_SCAN_LIMIT_REACHED',
+        message: 'Daily request limit reached',
       });
     }
 
     next();
+    
   } catch (err) {
 
-    res.status(401).json({
-      error_code: 'DAILY_SCAN_LIMIT_REACHED',
-      message: 'Daily request limit reached',
-    });
+    console.log(err)
+
   }
   
 };
