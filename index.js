@@ -12,9 +12,7 @@ import rateLimit from 'express-rate-limit'
 import { createClient } from "redis"
 
 const redis = createClient({
-   
   url: process.env.REDIS_URL
-
 });
 
 await redis.connect();
@@ -231,6 +229,16 @@ async function enrichFoodsWithCalories(detectedFoods) {
 
   const API_KEY = process.env.USDA_API_KEY;
 
+  const nutrientMap = {
+    "Protein": "protein",
+    "Total lipid (fat)": "fat",
+    "Carbohydrate, by difference": "carbohydrates",
+    "Fiber, total dietary": "fiber",
+    "Total Sugars": "sugar",
+    "Sodium, Na": "sodium",
+    "Energy": "calories"
+  };
+
   const realFoodData = [];
 
   for (const food of detectedFoods) {
@@ -240,30 +248,32 @@ async function enrichFoodsWithCalories(detectedFoods) {
     );
 
     const data = await response.json();
-
     const usdaFood = data.foods[0];
 
-    let nutrients = [];
+    const extracted = {
+      foodName: food.foodName,
+      servingSizeUnit: usdaFood?.servingSizeUnit ?? 'UNKNOWN_UNIT',
+      servingSize: usdaFood?.servingSize ?? 'UNKNOWN_SERVING',
+      householdServingFullText: usdaFood?.householdServingFullText ?? 'UNKNOWN_HOUSEHOLD',
+      protein: 0,
+      fat: 0,
+      carbohydrates: 0,
+      fiber: 0,
+      sugar: 0,
+      sodium: 0,
+      calories: 0
+    };
 
-    if (Array.isArray(usdaFood.foodNutrients)) {
-      nutrients = usdaFood.foodNutrients
-        .filter(n => n.nutrientName && typeof n.value === "number")
-        .map(n => ({
-          nutrientName: n.nutrientName,
-          value: n.value,
-          unitName: n.unitName || null // optional: include unit
-        }));
+    if (Array.isArray(usdaFood?.foodNutrients)) {
+      for (const n of usdaFood.foodNutrients) {
+        const key = nutrientMap[n.nutrientName];
+        if (key && typeof n.value === "number") {
+          extracted[key] = n.value;
+        }
+      }
     }
 
-    realFoodData.push({
-
-      foodName: food.foodName,
-      servingSizeUnit: usdaFood.servingSizeUnit,
-      servingSize: usdaFood.servingSize,
-      householdServingFullText: usdaFood.householdServingFullText,
-      nutrients: nutrients
-
-    });
+    realFoodData.push(extracted);
   }
 
   return JSON.stringify(realFoodData);
@@ -280,7 +290,7 @@ app.post("/api/analyze-food-image",
   }
 
   const jobId = crypto.randomUUID();
-  const user = req.user;
+  const user = 16;
 
   res.status(200).json({
     jobId,
@@ -294,7 +304,7 @@ app.post("/api/analyze-food-image",
 
   req.file.buffer = null;
 
-  startAIProcess(user.id, jobId, fileData);
+  startAIProcess(user, jobId, fileData);
 
 })
 
@@ -458,7 +468,7 @@ async function startAIProcess(userId,jobId,fileData) {
           
           4. Apply proportional scaling to ALL nutrients:
           
-             calculatedNutrient = scalingFactor × USDANutrient
+             calculatedNutrient = scalingFactor x USDANutrient
           
           5. Calories are critical and must be computed with high numerical accuracy using the same proportional formula.
           
@@ -469,6 +479,8 @@ async function startAIProcess(userId,jobId,fileData) {
           8. Do not modify food names, identifiers, or metadata.
           
           9. Do not invent or infer missing nutrients — only scale nutrients present in USDA data.
+
+          If a serving field contains an UNKNOWN, treat the USDA portion as unavailable and do not attempt unit conversion. Return nutrients as-is without scaling.
           
           Your output must strictly match the provided JSON schema.
           Return only structured JSON with no explanations or extra text.
@@ -479,18 +491,24 @@ async function startAIProcess(userId,jobId,fileData) {
           role: "user",
           content: `
 
-            estimated food data: ${estimatedFoodData}
-            real USDA food data: ${realFoodData}
-            
-            Instructions:
-            - estimatedFoodData contains AI-estimated servings and units for each food.
-            - realFoodData contains USDA reference data including standard serving size and nutrient values.
-            - For each food in estimatedFoodData, calculate nutrients using the formula:
-            
-              calculatedNutrientValue = (estimatedServing / USDAServingSize) * USDANutrientValue
-            
-            - Apply the formula consistently to all nutrients provided in USDA data.
-            - Return the final list of food objects with calculated nutrient values added.
+          estimated food data: ${estimatedFoodData}
+          real USDA food data: ${realFoodData}
+          
+          For each food item in estimated food data:
+          
+          * real USDA food data provides nutrient values for one USDA reference serving.
+          * estimated food data provides the number of servings actually consumed.
+          
+          Calculate nutrients by scaling the USDA nutrients to the estimated serving amount using:
+          
+          calculatedNutrientValue = (estimatedServing / USDAServingSize) x USDANutrientValue
+          
+          Apply this proportional scaling to all nutrients, including calories.
+          
+          If USDA serving information is missing or marked as UNKNOWN, return the USDA nutrients without scaling.
+          
+          Return a list of foods with the calculated nutrient values included. Output JSON only.
+          
         `
         }
       ],
@@ -521,24 +539,6 @@ async function startAIProcess(userId,jobId,fileData) {
     emitProgress(jobId, "completed", "Analysis complete", 100);
 
     io.to(jobId).emit("ai-complete", mealData);
-
-    const responseData = {
-      userId,
-      jobId,
-      fileData,
-      estimatedNutrients: analyzedFileFoodData,
-      isValidFood: true,
-      timestamp: Date.now()
-   };
-
-    const responseSignature = crypto
-      .createHmac("sha256", process.env.SHARED_SECRET)
-      .update(JSON.stringify(responseData))
-      .digest("hex");
-
-    await axios.post(`${webhookDomain}/api/receive-estimated-calorie`, responseData, {
-      headers: { "X-Signature": responseSignature },
-    });
 
 
   } catch (err) {
