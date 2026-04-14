@@ -1,34 +1,42 @@
 import express from "express";
-import axios from "axios";
+import cors from "cors";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import multer from "multer";
-import {estimationSchema, estimatedNutrientsSchema} from "./Schema/schema.js";
-import { Server } from "socket.io";
-import http from "http"
-import jwt from "jsonwebtoken";
-import rateLimit from 'express-rate-limit'
-import { createClient } from "redis"
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
 
-const redis = createClient({
-  url: process.env.REDIS_URL
-});
+dotenv.config();
 
-await redis.connect();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = path.join(__dirname, "uploads");
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const USER_DAILY_LIMIT = process.env.USER_DAILY_LIMIT;
 
-dotenv.config(); 
 
-const upload = multer({
-  storage: multer.memoryStorage(),
+const ALLOWED_AUDIO_MIMETYPES = new Set([
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/webm",
+  "audio/ogg",
+  "audio/flac",
+  "audio/x-m4a",
+]);
+
+const audioUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+  }),
   limits: {
-    fileSize: 8 * 1024 * 1024,
+    fileSize: 25 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      cb(new Error("Only images are allowed"), false);
+    if (!ALLOWED_AUDIO_MIMETYPES.has(file.mimetype)) {
+      cb(new Error("Unsupported audio format"), false);
     } else {
       cb(null, true);
     }
@@ -37,73 +45,19 @@ const upload = multer({
 
 const app = express();
 
-app.set('trust proxy', 1); 
+app.set('trust proxy', 1);
+
+app.use(cors());
 
 app.use(express.json({
   limit: "50mb"
 }));
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100, 
-  message: "Too many requests from this IP, please try again later",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 
-const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-const io = new Server(server, {
-  path: "/socket.io",
-  cors: { origin: "*" }
-});
-
-
-io.use(async (socket, next) => {
-
-  const token = socket.handshake.auth.token;
-
-  try {
-
-    const user = verifyToken(token);
-    socket.user = user
-    next();
-
-  } catch (err) {
-    console.error("WebSocket auth failed:", err.message);
-    next(new Error("Unauthorized"));
-  }
-});
-
-io.on("connection", (socket) => {
-
-    socket.on("subscribe-job", ({ jobId }) => {
-
-      console.log(`Socket joined job ${jobId}`);
-      socket.join(jobId);
-
-    });
-    
-});
-
-server.listen(PORT, () => {
-  console.log(`API + Socket running on port ${PORT}`);
-});
-
-const webhookDomain =  process.env.WEBHOOK_DOMAIN; 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-function emitProgress(jobId, step, message, percent = null) {
-  io.to(jobId).emit("ai-progress", {
-    jobId,
-    step,
-    message,
-    percent,
-    timestamp: Date.now()
-  });
-}
 
 function verifyToken(token) {
 
@@ -115,16 +69,11 @@ function verifyToken(token) {
     };
   }
 
-  try {
-
-    const payload = jwt.verify(token, process.env.SHARED_SECRET);
-    return { id: payload.sub, email: payload.email, ...payload };
-
-  } catch (err) {
+  if (!crypto.timingSafeEqual(Buffer.from(token), Buffer.from(process.env.SHARED_SECRET))) {
     throw {
-      status: 401,
+      status: 403,
       error_code: "INVALID_TOKEN",
-      message: err.message || "Invalid or expired token",
+      message: "Invalid token",
     };
   }
 }
@@ -145,412 +94,109 @@ async function auth(req, res, next) {
   const token = authHeader.split(" ")[1];
 
   try {
-    const user = verifyToken(token);
-    req.user = user;
+    verifyToken(token);
     next();
   } catch (err) {
-    res.status(err.status || 401).json({
-      error_code: err.error_code,
-      message: err.message,
+    return res.status(err.status || 500).json({
+      error_code: "AUTH_ERROR",
+      message: "Authentication failed",
     });
   }
 }
 
-async function userDailyLimit(req, res, next){
-
-  try {
-
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const key = `rate_limit:${userId}:${today}`;
-
-    const count = await redis.incr(key);
-
-    if (count === 1) {
-      await redis.expire(key, 60 * 60 * 24);
-    }
-
-    if (count > USER_DAILY_LIMIT) {
-      return res.status(401).json({
-        error_code: 'DAILY_SCAN_LIMIT_REACHED',
-        message: 'Daily request limit reached',
-      });
-    }
-
-    next();
-    
-  } catch (err) {
-
-    console.log(err)
-
-  }
-  
-};
 
 
-function calculateTotalCalories(foods) {
+app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
 
-  if (!Array.isArray(foods)) return 0;
-
-  return foods
-    .filter(food =>
-      food?.calories !== undefined &&
-      !isNaN(food.calories)
-    )
-    .reduce((total, food) => total + Number(food.calories), 0);
-}
-
-function roundFoodNutrients(foods) {
-
-  if (!Array.isArray(foods)) return [];
-
-  return foods.map(food => {
-    const roundedFood = {};
-
-    Object.entries(food).forEach(([key, value]) => {
-      if (key !== 'foodName' && !isNaN(value)) {
-        roundedFood[key] = Math.round(Number(value));
-      } else {
-        roundedFood[key] = value;
-      }
-    });
-
-    return roundedFood;
-  });
-
-}
-
-async function enrichFoodsWithCalories(detectedFoods) {
-
-  const API_KEY = process.env.USDA_API_KEY;
-
-  const nutrientMap = {
-    "Protein": "protein",
-    "Total lipid (fat)": "fat",
-    "Carbohydrate, by difference": "carbohydrates",
-    "Fiber, total dietary": "fiber",
-    "Total Sugars": "sugar",
-    "Sodium, Na": "sodium",
-    "Energy": "calories"
-  };
-
-  const realFoodData = [];
-
-  for (const food of detectedFoods) {
-
-    const response = await fetch(
-      `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${API_KEY}&query=${encodeURIComponent(food.foodName)}`
-    );
-
-    const data = await response.json();
-    const usdaFood = data.foods[0];
-
-    const extracted = {
-      foodName: food.foodName,
-      servingSizeUnit: usdaFood?.servingSizeUnit ?? 'UNKNOWN_UNIT',
-      servingSize: usdaFood?.servingSize ?? 'UNKNOWN_SERVING',
-      householdServingFullText: usdaFood?.householdServingFullText ?? 'UNKNOWN_HOUSEHOLD',
-      protein: 0,
-      fat: 0,
-      carbohydrates: 0,
-      fiber: 0,
-      sugar: 0,
-      sodium: 0,
-      calories: 0
-    };
-
-    if (Array.isArray(usdaFood?.foodNutrients)) {
-      for (const n of usdaFood.foodNutrients) {
-        const key = nutrientMap[n.nutrientName];
-        if (key && typeof n.value === "number") {
-          extracted[key] = n.value;
-        }
-      }
-    }
-
-    realFoodData.push(extracted);
-  }
-
-  return JSON.stringify(realFoodData);
-}
-
-app.post("/api/analyze-food-image",
-  limiter,upload.single('file'),
-  auth,
-  userDailyLimit,
-  async (req, res) => {
-  
   if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
+    return res.status(400).json({
+      error_code: "NO_FILE",
+      message: "No audio file provided",
+    });
   }
-
-  const jobId = crypto.randomUUID();
-  const user = 16;
-
-  res.status(200).json({
-    jobId,
-    status: "file accepted",
-    note: "Processing",
-  });
-
-  const fileContent = req.file.buffer.toString("base64");
-  const fileExt = req.file.mimetype.split("/")[1];
-  const fileData = { fileContent, fileExt, mimeType: req.file.mimetype };
-
-  req.file.buffer = null;
-
-  startAIProcess(user, jobId, fileData);
-
-})
-
-async function startAIProcess(userId,jobId,fileData) {
-
-  const { fileContent, fileExt } = fileData;
 
   try {
-    
-    emitProgress(jobId, "started", "Job accepted", 5);
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(req.file.path),
+      model: "gpt-4o-transcribe",
+      prompt: `
+      
+        You are an expert email writer. The user will give you a raw, unedited voice note transcription. Your job is to turn it into a clean, professional email that matches the tone, warmth, structure, and level of formality shown in the style samples below.
 
-    emitProgress(jobId, "analyzing_image", "Analyzing image", 20);
+        Rules:
+        - Preserve the sender's intent, tone, and key details exactly — do not add, remove, or assume information
+        - Fix filler words, false starts, and rambling into clear, concise prose
+        - Match the writing style of the samples: warm, direct, conversational yet professional
+        - Output only the email (subject line + body). No commentary, no explanation, no preamble.
 
-    const response = await openai.responses.parse({
+        ## Strictly follow this format:
 
-      model: "gpt-4o-2024-08-06",
-      input: [
-        {
-          role: "system",
-          content: `
+        Subject: <subject>
 
-          You are an AI vision-based food analysis assistant.
-          
-          Your task is to analyze a single image of a prepared dish and identify all visually distinct food items present. For each detected food item, you must estimate its serving size based solely on visual cues from the image.
-          
-          # Core Responsibilities
+        <body>
 
-          Detect individual food items visible in the dish.
-          Treat mixed dishes as separate components when visually distinguishable (e.g., rice and chicken, vegetables and meat).
-          Provide reasonable visual estimates, not exact measurements.
-          When uncertain, still provide the best plausible estimate based on common portion sizes.
-          
-          # Output Requirements
-          
-          You must respond only with JSON that strictly conforms to the provided schema.
-          Do not include explanations, commentary, or additional fields.
-          Do not include markdown or formatting outside the JSON object.
-          Do not guess foods that are not visually present.
-          
-          # Field Instructions
-          
-          For each object in detectedFoods:
-          
-          [foodName]:
-          
-          Use a common, generic food name.
-          
-          Avoid brand names or overly specific culinary terms unless visually obvious.
-  
-          [householdServingFullText]:
-          
-          Provide a human-readable serving approximation (e.g., “1 cup”, “2 slices”, “1 medium piece”).
-          This value should align logically with the numeric serving size.
-          
-          # Estimation Guidelines
-          
-          Base estimates on typical household portions and visual scale references (plates, utensils, bowls).
-          Prefer conservative estimates over extreme values.
-          If multiple pieces of the same food are present, estimate the total combined serving.
-          
-          # Constraints
-          
-          Do not include nutritional data, calories, or macros.
-          Do not infer ingredients that cannot be visually confirmed.
-          Do not include confidence scores or uncertainty language in the output.
-          Do not add or remove schema fields.
+        ## Style Reference Emails:
 
-          If the image does not primarily contain edible food, you must set:
-          - isValidFood = false
-          - invalidReason = what was detected instead
-                                
-          `,
-        },
-        {
-          role: "user",
-          content: [
-            {type: "input_text", text: "Analyze the image" },
-            {
-              type: "input_image",
-              image_url: `data:image/${fileExt};base64,${fileContent}`,
-            },
-          ],
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "food_weight_and_servings_estimation",
-          strict: true,
-          schema: estimationSchema.schema 
-        }
-      }
+          Sample Email #1
+
+          Subject: Intro Regarding Chief of Staff
+
+          Hi there Portia,
+
+          It's wonderful to meet you! I was thrilled to hear that Liz is in the midst of hiring a Chief of Staff—I'm certain that hire will bring a huge amount of life to her day-to-day. I'd love to connect on Tuesday of next week when I'm back in the office. 3:00 PM EST works great for me! I'll keep an eye out for that invite. Looking forward to talking soon!
+
+          Thanks,
+
+          Connor
+
+          Sample Email #2
+
+          Subject: Personalized AI Workshop
+
+          Hey Sarah,
+
+          Apologies for the wait on this — and thank you so much for thinking ofme! This definitely sounds like an intriguing opportunity, and I'd love to hear more about what you're envisioning.
+
+          That said, I want to be upfront: I probably won't be the right person to lead this one. We're expecting a baby girl sometime in the first half of May, so I'll be offline on paternity leave right around the time you're looking at for the in-person session.
+
+          All that said, I would love to hop on a quick call to chat through this with you and see if I can get you pointed in the right direction. Even if the timing doesn't work for me to facilitate, I may be able to help you think through format, content, and who might be a great fit—there are also some additional MM coaches who could be a great fit for this! Would you be open to a quick call early next week to discuss?
+
+          Thanks,
+
+          Connor
+
+          Sample Email #3
+
+          Subject: Quick follow-up and resources
+
+          Hey Larry,
+
+          Really enjoyed getting to connect with you this afternoon. Super excited by what you're building and experimenting with. You gave me some much-needed inspiration to dive back into Claude Cowork and see just how much it can do now. I'll be very curious to hear your thoughts on OpenClaw once you get it up and running!
+
+          On that note, I promised a couple videos from my favorite Openclaw content creators. If you only watch one, make it this: [The only OpenClaw tutorial you’ll ever need (March 2026 edition)](https://youtu.be/CxErCGVo-oo?si=Bl0NMjfX4Rpb7kyF). Here's another video with some valuable use-cases: [5 OpenClaw use cases you need to implement IMMEDIATELY](https://youtu.be/qRA0MyPlEPE?si=w75aXN2B8wrLueos). Finally, here's a deeper dive into the Mission Control: [OpenClaw is 100x better with this tool (Mission Control)](https://youtu.be/RhLpV6QDBFE?si=qsx-t3GKeugF9C65).
+
+          I hope those videos help! And if you hit any snags (which is almost inevitable with Openclaw setup), don't forget to leverage AI! Copy and paste what you're experiencing into ChatGPT and ask for step-by-step guidance under the assumption that you do not have technical experience. It took a lot of back-and-forth (and a moment or three where I wanted throw my computer out the window), but I was finally able to get there with enough experimentation.
+
+          Let me know if there's anything I can do to help!
+
+          Thanks,
+
+          Connor
+        `
     });
 
-    const generatedData = response.output_parsed;
-
-    if(!generatedData.isValidFood){
-
-      emitProgress(jobId, "rejected", `${generatedData.invalidReason}`, 100);
-
-      const rejectionPayload = {
-        userId,
-        jobId,
-        fileData,
-        isValidFood: false,
-        invalidReason: generatedData.invalidReason,
-        timestamp: Date.now()
-      };
-
-      const rejectionSignature = crypto
-        .createHmac("sha256", process.env.SHARED_SECRET)
-        .update(JSON.stringify(rejectionPayload))
-        .digest("hex");
-
-      await axios.post(`${webhookDomain}/api/receive-estimated-calorie`, rejectionPayload, {
-        headers: { "X-Signature": rejectionSignature }
-      });
-
-      return;
-
-    }
-
-    emitProgress(jobId, "enriching_foods", "Enriching calorie data", 50);
-
-    const realFoodData = await enrichFoodsWithCalories(generatedData.detectedFoods)
-
-    emitProgress(jobId, "estimating_nutrients", "Estimating nutrients", 75);
-    
-    const estimatedFoodData = JSON.stringify(generatedData.detectedFoods)
-
-    const estimatedNutrients = await openai.responses.parse({
-
-      model: "gpt-4o-2024-08-06",
-      input: [
-        {
-          role: "system",
-          content: `
-          
-          You are a nutrition calculation engine that performs precise portion-based nutrient scaling.
-
-          Your task is to compute nutrient values for each detected food item by scaling USDA reference nutrients to match the AI-estimated household serving.
-          
-          Each food item includes:
-          
-          • estimatedFoodData → an AI-estimated household serving (e.g., "3 cups", "1.5 bowls")
-          • realFoodData → USDA reference data that represents nutrients for a specific real portion (e.g., nutrients for "1 bowl")
-          
-          Core rule:
-          
-          You must treat the USDA portion as the base reference portion and scale all nutrients proportionally to match the AI-estimated serving.
-          
-          For each food item:
-          
-          1. Identify the USDA reference portion and its associated nutrient values.
-          
-          2. Interpret the AI-estimated household serving as a multiple of the USDA reference portion.
-          
-          3. Compute a scaling factor:
-          
-             scalingFactor = estimatedServing / USDAReferenceServing
-          
-          4. Apply proportional scaling to ALL nutrients:
-          
-             calculatedNutrient = scalingFactor x USDANutrient
-          
-          5. Calories are critical and must be computed with high numerical accuracy using the same proportional formula.
-          
-          6. Preserve decimal precision appropriately and avoid unnecessary rounding during intermediate calculations.
-          
-          7. If a nutrient exists in USDA data and the result of scaling is zero, return 0 (never null or omitted).
-          
-          8. Do not modify food names, identifiers, or metadata.
-          
-          9. Do not invent or infer missing nutrients — only scale nutrients present in USDA data.
-
-          If a serving field contains an UNKNOWN, treat the USDA portion as unavailable and do not attempt unit conversion. Return nutrients as-is without scaling.
-          
-          Your output must strictly match the provided JSON schema.
-          Return only structured JSON with no explanations or extra text.
-          
-        `
-        },
-        {
-          role: "user",
-          content: `
-
-          estimated food data: ${estimatedFoodData}
-          real USDA food data: ${realFoodData}
-          
-          For each food item in estimated food data:
-          
-          * real USDA food data provides nutrient values for one USDA reference serving.
-          * estimated food data provides the number of servings actually consumed.
-          
-          Calculate nutrients by scaling the USDA nutrients to the estimated serving amount using:
-          
-          calculatedNutrientValue = (estimatedServing / USDAServingSize) x USDANutrientValue
-          
-          Apply this proportional scaling to all nutrients, including calories.
-          
-          If USDA serving information is missing or marked as UNKNOWN, return the USDA nutrients without scaling.
-          
-          Return a list of foods with the calculated nutrient values included. Output JSON only.
-          
-        `
-        }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "nutrients_estimation",
-          strict: true,
-          schema: estimatedNutrientsSchema.schema 
-        }
-      }
-    });
-
-    const analyzedFileFoodData = estimatedNutrients.output_parsed
-
-    const detectedFoodsWithNutrients = roundFoodNutrients(analyzedFileFoodData.foods)
-    const totalCalories = calculateTotalCalories(detectedFoodsWithNutrients)
-
-    const mealData = {
-      jobId,
-      dish_description: analyzedFileFoodData.dishDescription,
-      total_calories: totalCalories,
-      detected_foods_with_nutrients: analyzedFileFoodData.foods,
-      status: 'complete',
-      timestamp: Date.now()
-    };
-
-    emitProgress(jobId, "completed", "Analysis complete", 100);
-
-    io.to(jobId).emit("ai-complete", mealData);
-
-
+    return res.json({ text: transcription.text });
   } catch (err) {
-
-    console.error("AI process error:", err);
-
-    io.to(jobId).emit("ai-error", {
-      error: err.message || "Unknown AI error",
-      jobId,
+    console.error("Transcription error:", err);
+    return res.status(500).json({
+      error_code: "TRANSCRIPTION_FAILED",
+      message: err.message || "Failed to transcribe audio",
     });
-
+  } finally {
+    fs.unlink(req.file.path, () => {});
   }
-}
+});
 
-
+app.listen(PORT, () => {
+  console.log(`API + Socket running on port ${PORT}`);
+});
