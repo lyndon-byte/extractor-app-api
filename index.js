@@ -5,16 +5,8 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import multer from "multer";
 import fs from "fs"
-import path from "path"
-import { fileURLToPath } from "url"
 
 dotenv.config();
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = path.join(__dirname, "uploads");
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-
 
 const ALLOWED_AUDIO_MIMETYPES = new Set([
   "audio/mpeg",
@@ -28,7 +20,7 @@ const ALLOWED_AUDIO_MIMETYPES = new Set([
 
 const audioUpload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    destination: (_req, _file, cb) => cb(null, "/tmp"),
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
   }),
   limits: {
