@@ -120,6 +120,7 @@ app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
         - Fix filler words, false starts, and rambling into clear, concise prose
         - Match the writing style of the samples: warm, direct, conversational yet professional
         - Output only the email (subject line + body). No commentary, no explanation, no preamble.
+        - Always include subject line on the output.
 
         ## Strictly follow this format:
 
