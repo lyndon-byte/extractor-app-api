@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
 import dotenv from "dotenv";
-import crypto from "crypto";
 import multer from "multer";
 import fs from "fs"
 
@@ -45,57 +44,49 @@ app.use(express.json({
   limit: "50mb"
 }));
 
+import admin from 'firebase-admin';
 
+const serviceAccount = {
+
+  "type": process.env.FIREBASE_TYPE,
+  "project_id": process.env.FIREBASE_PROJECT_ID,
+  "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
+  "private_key": process.env.FIREBASE_PRIVATE_KEY,
+  "client_email": process.env.FIREBASE_CLIENT_EMAIL,
+  "client_id": process.env.FIREBASE_CLIENT_ID,
+  "auth_uri": process.env.FIREBASE_AUTH_URL,
+  "token_uri": process.env.FIREBASE_TOKEN_URL,
+  "auth_provider_x509_cert_url": process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+  "client_x509_cert_url": process.env.FIREBASE_CLIENT_CERT_URL,
+  "universe_domain": process.env.FIREBASE_UNIVERS_DOMAIN,
+
+};
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 const PORT = process.env.PORT || 3000;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-function verifyToken(token) {
-
-  if (!token) {
-    throw {
-      status: 401,
-      error_code: "NO_TOKEN",
-      message: "No token provided",
-    };
-  }
-
-  if (!crypto.timingSafeEqual(Buffer.from(token), Buffer.from(process.env.SHARED_SECRET))) {
-    throw {
-      status: 403,
-      error_code: "INVALID_TOKEN",
-      message: "Invalid token",
-    };
-  }
-}
-
-
 
 async function auth(req, res, next) {
 
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      error_code: "UNAUTHENTICATED",
-      message: "Missing or invalid Authorization header",
-    });
-  }
-
-  const token = authHeader.split(" ")[1];
+  const idToken = req.headers.authorization?.split('Bearer ')[1];
+  
+  if (!idToken) return res.status(401).send('Unauthorized');
 
   try {
-    verifyToken(token);
+    // Verify the token with Firebase
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken; // Token is valid, attach user data to request
     next();
-  } catch (err) {
-    return res.status(err.status || 500).json({
-      error_code: "AUTH_ERROR",
-      message: "Authentication failed",
-    });
+  } catch (error) {
+    res.status(401).send('Invalid token');
+
   }
 }
-
 
 
 app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
