@@ -5,13 +5,16 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.53",
     "@elevenlabs/elevenlabs-js": "^2.36.0",
+    "ai": "^6.0.168",
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",

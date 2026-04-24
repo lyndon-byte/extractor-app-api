@@ -4,6 +4,9 @@ import OpenAI from "openai";
 import dotenv from "dotenv";
 import multer from "multer";
 import fs from "fs"
+import { z } from 'zod'
+import { generateText, Output } from 'ai'
+import { openai } from '@ai-sdk/openai'
 
 dotenv.config();
 
@@ -68,8 +71,7 @@ admin.initializeApp({
 
 const PORT = process.env.PORT || 3000;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+const directClientOpenai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function auth(req, res, next) {
 
@@ -98,78 +100,61 @@ app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
     });
   }
 
+  const { displayName } = req.body;
+
   try {
-    const transcription = await openai.audio.transcriptions.create({
+
+    const  transcription = await directClientOpenai.audio.transcriptions.create({
+
       file: fs.createReadStream(req.file.path),
       model: "gpt-4o-transcribe",
       prompt: `
       
-        You are an expert email writer. The user will give you a raw, unedited voice note transcription. Your job is to turn it into a clean, professional email that matches the tone, warmth, structure, and level of formality shown in the style samples below.
+          You are an expert email writer. The user will give you a raw, unedited voice note transcription. Your job is to turn it into a clean, professional email.
 
-        Rules:
-        - Preserve the sender's intent, tone, and key details exactly — do not add, remove, or assume information
-        - Fix filler words, false starts, and rambling into clear, concise prose
-        - Match the writing style of the samples: warm, direct, conversational yet professional
-        - Output only the email (subject line + body). No commentary, no explanation, no preamble.
-        - Always include subject line on the output.
+          Rules:
+          - Preserve the sender's intent, tone, and key details exactly — do not add, remove, or assume information
+          - Fix filler words, false starts, and rambling into clear, concise prose
+          - Output only the email (subject line + body). No commentary, no explanation, no preamble.
+          - Always include subject line on the output.
 
-        ## Strictly follow this format:
+          ## Strictly follow this format:
 
-        Subject: <subject>
+          Subject: <subject>
 
-        <body>
-
-        ## Style Reference Emails:
-
-          Sample Email #1
-
-          Subject: Intro Regarding Chief of Staff
-
-          Hi there Portia,
-
-          It's wonderful to meet you! I was thrilled to hear that Liz is in the midst of hiring a Chief of Staff—I'm certain that hire will bring a huge amount of life to her day-to-day. I'd love to connect on Tuesday of next week when I'm back in the office. 3:00 PM EST works great for me! I'll keep an eye out for that invite. Looking forward to talking soon!
+          <body>
 
           Thanks,
+          ${displayName}
 
-          Connor
+        `,      
 
-          Sample Email #2
+    }); 
 
-          Subject: Personalized AI Workshop
-
-          Hey Sarah,
-
-          Apologies for the wait on this — and thank you so much for thinking ofme! This definitely sounds like an intriguing opportunity, and I'd love to hear more about what you're envisioning.
-
-          That said, I want to be upfront: I probably won't be the right person to lead this one. We're expecting a baby girl sometime in the first half of May, so I'll be offline on paternity leave right around the time you're looking at for the in-person session.
-
-          All that said, I would love to hop on a quick call to chat through this with you and see if I can get you pointed in the right direction. Even if the timing doesn't work for me to facilitate, I may be able to help you think through format, content, and who might be a great fit—there are also some additional MM coaches who could be a great fit for this! Would you be open to a quick call early next week to discuss?
-
-          Thanks,
-
-          Connor
-
-          Sample Email #3
-
-          Subject: Quick follow-up and resources
-
-          Hey Larry,
-
-          Really enjoyed getting to connect with you this afternoon. Super excited by what you're building and experimenting with. You gave me some much-needed inspiration to dive back into Claude Cowork and see just how much it can do now. I'll be very curious to hear your thoughts on OpenClaw once you get it up and running!
-
-          On that note, I promised a couple videos from my favorite Openclaw content creators. If you only watch one, make it this: [The only OpenClaw tutorial you’ll ever need (March 2026 edition)](https://youtu.be/CxErCGVo-oo?si=Bl0NMjfX4Rpb7kyF). Here's another video with some valuable use-cases: [5 OpenClaw use cases you need to implement IMMEDIATELY](https://youtu.be/qRA0MyPlEPE?si=w75aXN2B8wrLueos). Finally, here's a deeper dive into the Mission Control: [OpenClaw is 100x better with this tool (Mission Control)](https://youtu.be/RhLpV6QDBFE?si=qsx-t3GKeugF9C65).
-
-          I hope those videos help! And if you hit any snags (which is almost inevitable with Openclaw setup), don't forget to leverage AI! Copy and paste what you're experiencing into ChatGPT and ask for step-by-step guidance under the assumption that you do not have technical experience. It took a lot of back-and-forth (and a moment or three where I wanted throw my computer out the window), but I was finally able to get there with enough experimentation.
-
-          Let me know if there's anything I can do to help!
-
-          Thanks,
-
-          Connor
-        `
+    const { output } = await generateText({
+    
+        model: openai("gpt-4o"),
+        system: 'Extract subject and body from email message.',
+        prompt: transcription.text,
+        output: Output.object({
+          schema: z.object({
+            emailMessage: z.object({
+              emailSubject: z.string(),
+              emailBody: z.string()
+            })
+          })
+        })
+            
     });
 
-    return res.json({ text: transcription.text });
+
+    return res.json({ 
+
+       subject: output.emailMessage.emailSubject,
+       body: output.emailMessage.emailBody
+
+    });
+
   } catch (err) {
     console.error("Transcription error:", err);
     return res.status(500).json({
