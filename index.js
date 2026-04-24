@@ -125,7 +125,9 @@ app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
           <body>
 
           Thanks,
-          ${displayName}
+
+          <first name of "${displayName}">
+
 
         `,      
 
