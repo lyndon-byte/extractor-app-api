@@ -21,14 +21,10 @@ const processVoiceEmail = inngest.createFunction(
 
     const { payload } = event;
 
-    const savedRecord = await step.run("save-to-db", async () => {
+    await step.run("save-to-db", async () => {
       return await createVoiceEmail(payload);
     });
 
-    await step.sendEvent("trigger-notification", {
-      name: "app/email.processed",
-      data: { emailId: savedRecord.id, userUid: payload.uid },
-    });
 
   }
 );
