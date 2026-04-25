@@ -100,7 +100,7 @@ async function auth(req, res, next) {
 }
 
 
-app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
+app.post("/transcribe", auth, audioUpload.single("file"), async (req, res) => {
 
   if (!req.file) {
     return res.status(400).json({
@@ -109,7 +109,7 @@ app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
     });
   }
 
-  const displayName = 'Lyndon'
+  const displayName = req.user.name
 
   try {
 
@@ -163,7 +163,7 @@ app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
       name: "app/voice.submitted",
       data: {
 
-        uid: "1234567",
+        uid: req.user.uid,
         subject: output.emailMessage.emailSubject,
         body: output.emailMessage.emailBody,
         transcription: transcription.text,
@@ -174,9 +174,8 @@ app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
 
     return res.json({ 
 
-      //  subject: output.emailMessage.emailSubject,
-      //  body: output.emailMessage.emailBody
-      message: 'success'
+      subject: output.emailMessage.emailSubject,
+      body: output.emailMessage.emailBody,
       
     });
 
