@@ -1,9 +1,8 @@
-// inngest/client.js
 import 'dotenv/config'
 import { Inngest } from "inngest";
 import { createVoiceEmail } from "../services/emailService.js";
+import { uploadAudioFile } from '../services/fileService.js';
 
-// Create a client to send and receive events
 export const inngest = new Inngest({ 
     
     id: "extractor-app",
@@ -22,7 +21,19 @@ const processVoiceEmail = inngest.createFunction(
     const { data } = event;
 
     await step.run("save-to-db", async () => {
-      return await createVoiceEmail(data);
+
+      const fileUrl = await uploadAudioFile(data.file)
+
+      return await createVoiceEmail({
+
+          uid: data.uid,
+          subject: data.subject,
+          body: data.body,
+          raw_transcription: data.transcription,
+          file_url: fileUrl
+
+      });
+
     });
 
 

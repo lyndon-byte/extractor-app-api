@@ -3,12 +3,10 @@ import cors from "cors";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import multer from "multer";
-import crypto from 'crypto';
 import fs from "fs"
 import { z } from 'zod'
 import { generateText, Output } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { serve } from 'inngest/express'
 import { inngest,functions } from "./src/inngest/client.js"
 import admin from 'firebase-admin';
@@ -42,14 +40,6 @@ const audioUpload = multer({
   }
 });
 
-const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
 
 const app = express();
 
@@ -109,80 +99,75 @@ async function auth(req, res, next) {
   }
 }
 
-// audioUpload.single("file"),
 
-app.post("/transcribe", async (req, res) => {
+app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
 
-  // if (!req.file) {
-  //   return res.status(400).json({
-  //     error_code: "NO_FILE",
-  //     message: "No audio file provided",
-  //   });
-  // }
-
-  // const { displayName } = req.body;
+  if (!req.file) {
+    return res.status(400).json({
+      error_code: "NO_FILE",
+      message: "No audio file provided",
+    });
+  }
 
   try {
 
-    // const  transcription = await directClientOpenai.audio.transcriptions.create({
+    const  transcription = await directClientOpenai.audio.transcriptions.create({
 
-    //   file:  fs.createReadStream(req.file.path),
-    //   model: "gpt-4o-transcribe",
-    //   prompt: `
+      file:  fs.createReadStream(req.file.path),
+      model: "gpt-4o-transcribe",
+      prompt: `
       
-    //       You are an expert email writer. The user will give you a raw, unedited voice note transcription. Your job is to turn it into a clean, professional email.
+          You are an expert email writer. The user will give you a raw, unedited voice note transcription. Your job is to turn it into a clean, professional email.
 
-    //       Rules:
-    //       - Preserve the sender's intent, tone, and key details exactly — do not add, remove, or assume information
-    //       - Fix filler words, false starts, and rambling into clear, concise prose
-    //       - Output only the email (subject line + body). No commentary, no explanation, no preamble.
-    //       - Always include subject line on the output.
+          Rules:
+          - Preserve the sender's intent, tone, and key details exactly — do not add, remove, or assume information
+          - Fix filler words, false starts, and rambling into clear, concise prose
+          - Output only the email (subject line + body). No commentary, no explanation, no preamble.
+          - Always include subject line on the output.
 
-    //       ## Strictly follow this format:
+          ## Strictly follow this format:
 
-    //       Subject: <subject>
+          Subject: <subject>
 
-    //       <body>
+          <body>
 
-    //       Thanks,
+          Thanks,
 
-    //       <first name of "${displayName}">
+          <first name of "${displayName}">
 
 
-    //     `,      
+        `,      
 
-    // }); 
+    }); 
 
-    // const { output } = await generateText({
+    const { output } = await generateText({
     
-    //     model: openai("gpt-4o"),
-    //     system: 'Extract subject and body from email message.',
-    //     prompt: transcription.text,
-    //     output: Output.object({
-    //       schema: z.object({
-    //         emailMessage: z.object({
-    //           emailSubject: z.string(),
-    //           emailBody: z.string()
-    //         })
-    //       })
-    //     })
+        model: openai("gpt-4o"),
+        system: 'Extract subject and body from email message.',
+        prompt: transcription.text,
+        output: Output.object({
+          schema: z.object({
+            emailMessage: z.object({
+              emailSubject: z.string(),
+              emailBody: z.string()
+            })
+          })
+        })
             
-    // });
+    });
 
-    // const ext = req.file.originalname.split('.').pop();
-
-    // const uploadCommand = new PutObjectCommand({
-    //   Bucket: process.env.R2_BUCKET_NAME,
-    //   Key: `uploads/${Date.now()}-${crypto.randomUUID()}.${ext}`, // The name of the file in R2
-    //   Body:  fs.createReadStream(req.file.path),
-    //   ContentType: req.file.mimetype,
-    // });
-
-    // await r2Client.send(uploadCommand);
-
+ 
     await inngest.send({
       name: "app/voice.submitted",
-      data: req.body, // your email model data
+      data: {
+
+        uid: "1234567",
+        subject: output.emailMessage.emailSubject,
+        body: output.emailMessage.emailBody,
+        transcription: transcription.text,
+        file: req.file
+
+      },
     });
 
     return res.json({ 
@@ -194,13 +179,15 @@ app.post("/transcribe", async (req, res) => {
     });
 
   } catch (err) {
+
     console.error("Transcription error:", err);
     return res.status(500).json({
       error_code: "TRANSCRIPTION_FAILED",
       message: err.message || "Failed to transcribe audio",
     });
+
   } finally {
-    // fs.unlink(req.file.path, () => {});
+     fs.unlink(req.file.path, () => {});
   }
 });
 
