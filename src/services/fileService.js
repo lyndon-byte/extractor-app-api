@@ -25,6 +25,7 @@ export async function uploadAudioFile(file) {
             Key: `uploads/${fileName}`,
             Body:  fs.createReadStream(file.path),
             ContentType: file.mimetype,
+            ContentLength: file.size
         });
 
         await r2Client.send(uploadCommand);
@@ -35,10 +36,14 @@ export async function uploadAudioFile(file) {
 
         console.error("Transcription error:", err);
         throw err;
-        
+
     } finally {
 
-        fs.unlink(file.path, () => {});
+        if (file.path && fs.existsSync(file.path)) {
+            fs.unlink(file.path, (err) => {
+                if (err) console.error("Error deleting temp file:", err);
+            });
+        }
 
     }
     
