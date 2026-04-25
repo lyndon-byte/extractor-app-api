@@ -19,10 +19,10 @@ const processVoiceEmail = inngest.createFunction(
   },
   async ({ event, step }) => {
 
-    const { payload } = event;
+    const { data } = event;
 
     await step.run("save-to-db", async () => {
-      return await createVoiceEmail(payload);
+      return await createVoiceEmail(data);
     });
 
 
