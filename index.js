@@ -224,13 +224,6 @@ app.get("/test-db-get", async (req, res) => {
 
 })
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(3000, () => console.log('Server running on port 3000'));
-}
-
-if (!process.env.INNGEST_SIGNING_KEY) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Local server running on port ${PORT}`));
-}
-
-module.exports = app;
+app.listen(PORT, () => {
+  console.log(`API + Socket running on port ${PORT}`);
+});
