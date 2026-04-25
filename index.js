@@ -188,9 +188,7 @@ app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
       message: err.message || "Failed to transcribe audio",
     });
 
-  } finally {
-     fs.unlink(req.file.path, () => {});
-  }
+  } 
 });
 
 

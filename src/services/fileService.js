@@ -34,7 +34,8 @@ export async function uploadAudioFile(file) {
     } catch (err) { 
 
         console.error("Transcription error:", err);
-
+        throw err;
+        
     } finally {
 
         fs.unlink(file.path, () => {});
