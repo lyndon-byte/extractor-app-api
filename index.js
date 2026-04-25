@@ -109,6 +109,8 @@ app.post("/transcribe", audioUpload.single("file"), async (req, res) => {
     });
   }
 
+  const displayName = 'Lyndon'
+
   try {
 
     const  transcription = await directClientOpenai.audio.transcriptions.create({
