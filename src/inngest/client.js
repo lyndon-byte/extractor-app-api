@@ -20,17 +20,19 @@ const processVoiceEmail = inngest.createFunction(
 
     const { data } = event;
 
-    await step.run("save-to-db", async () => {
+    const fileUrl = await step.run("upload-audio", async () => {
+      return await uploadAudioFile(data.file);
+    });
 
-      const fileUrl = await uploadAudioFile(data.file)
+    await step.run("save-to-db", async () => {
 
       return await createVoiceEmail({
 
           uid: data.uid,
           subject: data.subject,
           body: data.body,
-          raw_transcription: data.transcription,
-          file_url: fileUrl
+          rawTranscription: data.transcription,
+          fileUrl: fileUrl
 
       });
 
