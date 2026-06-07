@@ -397,7 +397,9 @@ app.post('/subscription/webhook', verifyWebhookSignature, async (req, res) => {
     const subscriptionEvent = req.body;
 
     const eventName = subscriptionEvent.meta.event_name;
-    const subscriptionId = subscriptionEvent.data.attributes.subscription_id;
+    // Invoice events (payment_success, payment_failed) carry subscription_id in attributes.
+    // Subscription events (cancelled, expired) are the subscription itself — ID is data.id.
+    const subscriptionId = subscriptionEvent.data.attributes.subscription_id ?? subscriptionEvent.data.id;
 
     switch (eventName) {
 
