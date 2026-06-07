@@ -10,6 +10,16 @@ CREATE TABLE "chats" (
 	CONSTRAINT "chats_chat_id_unique" UNIQUE("chat_id")
 );
 --> statement-breakpoint
+CREATE TABLE "message_usage" (
+	"user_id" text NOT NULL,
+	"year" integer NOT NULL,
+	"month" integer NOT NULL,
+	"message_count" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "message_usage_user_id_year_month_pk" PRIMARY KEY("user_id","year","month")
+);
+--> statement-breakpoint
 CREATE TABLE "subscriptions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,

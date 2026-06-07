@@ -14,7 +14,7 @@ import {
 import { openai } from '@ai-sdk/openai'
 import { saveChat,getChatsByUserId, getMessagesByChatId } from "./src/chat-store.js";
 import admin from 'firebase-admin';
-import { createSubscription, updateSubscription } from "./src/subcription-store.js";
+import { cancelSubscription, checkSubscription, createCheckoutLink, createSubscription, getSubscriptionOnAPI, updateSubscription, canSendMessage,incrementMessageCount } from "./src/subcription.js";
 import { logger } from "./src/logger.js";
 import verifyWebhookSignature from "./src/middleware/verify-webhook.js";
 
@@ -114,20 +114,77 @@ async function auth(req, res, next) {
   if (!idToken) return res.status(401).send('Unauthorized');
 
   try {
-    // Verify the token with Firebase
+
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.user = decodedToken; // Token is valid, attach user data to request
-    next();
+    req.user = decodedToken;
+
+    next()
+
   } catch (error) {
+
     res.status(401).send('Invalid token');
 
   }
 }
 
+async function checkSubscriptionMiddleware(req, res, next){
+
+  try {
+
+    const result = await checkSubscription({userId: req.user.uid});
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error_code: 'SUBSCRIPTION_CHECK_FAILED',
+        message: 'Unable to verify subscription status. Please try again.',
+      });
+    }
+
+    if (result.data) {
+
+      if (result.data.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          error_code: 'SUBSCRIPTION_INACTIVE',
+          message: `Your subscription is ${result.data.status}. Please renew your plan to continue.`,
+        });
+      }
+
+      return next();
+
+    }
+
+    const isAllowed = await canSendMessage({ userId: req.user.uid });
+
+    console.log(isAllowed)
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        error_code: 'FREE_TIER_LIMIT_REACHED',
+        message: 'You have reached the 12 email limit for this month. Upgrade to a plan to continue.',
+      });
+    }
+
+    return next();
+
+  } catch (err) {
+
+    logger.error('Unexpected error in checkSubscriptionMiddleware', { uid: req.user.uid, err });
+
+    return res.status(500).json({
+      success: false,
+      error_code: 'INTERNAL_SERVER_ERROR',
+      message: 'An unexpected error occurred. Please try again.',
+    });
+
+  }
+
+}
 
 
-
-app.post("/api/transcribe", auth, audioUpload.single("file"), async (req, res) => {
+app.post("/api/transcribe", auth, checkSubscriptionMiddleware, audioUpload.single("file"), async (req, res) => {
   
 
   if (!req.file) {
@@ -218,6 +275,8 @@ app.post("/api/generate-email", auth, async (req, res) => {
         })
     });
 
+    await incrementMessageCount({userId: uid});
+
     return output.pipeUIMessageStreamToResponse(res,{
       originalMessages: messages,
       onFinish: async ({ messages }) => {
@@ -266,45 +325,72 @@ async function modifySubscription({subscriptionId,status}){
 
       try {
 
-        const result = await updateSubscription(subscriptionId,status);
+        const result = await updateSubscription({subscriptionId,status});
 
           if (!result.success) {
+
             logger.error('Update subscription failed', {
-              id,
-              updateData,
+              subscriptionId,
               error: result.error,
             });
 
-            if (result.error === 'Subscription not found') {
-              return res.status(404).json(result);
-            }
-
-            return res.status(500).json(result);
           }
 
           logger.info('Subscription updated successfully', {
-            id,
+            subscriptionId,
             updatedRecord: result.data,
           });
-
-          return res.json(result);
 
       } catch (err) {
 
           logger.error('Unexpected error during subscription update', {
-            id,
-            updateData,
-            err,
-          });
-
-          return res.status(500).json({
-            success: false,
-            error: 'Unexpected server error',
+            subscriptionId,
+            err
           });
           
       }
   
 }
+
+async function addSubscription({userId,subscriptionId,name,email}){
+
+
+     try {
+
+          const result = await createSubscription({userId,subscriptionId,name,email})
+
+          if (!result.success) {
+
+              logger.error('Create subscription failed', {
+                error: result.error,
+              });
+
+          }
+
+          logger.info('Subscription created successfully', {
+              subscription: result.data,
+          });
+
+          await pusher.trigger(
+                `private-user-${userId}`,
+                'subscription-payment',
+              {
+                  message: 'subscription payment successful',
+                  userId,
+                  subscriptionId
+              }
+          );
+
+      } catch (err) {
+
+          logger.error('Unexpected error during subscription creation', {
+            err,
+          });
+
+      }
+
+}
+
 
 app.post('/subscription/webhook', verifyWebhookSignature, async (req, res) => {
 
@@ -323,75 +409,28 @@ app.post('/subscription/webhook', verifyWebhookSignature, async (req, res) => {
             const name = subscriptionEvent.data.attributes.user_name;
             const email = subscriptionEvent.data.attributes.user_email;
 
-            try {
+            await addSubscription({userId,subscriptionId,name,email})
+        }
 
-              const result = await createSubscription({userId,subscriptionId,name,email})
-
-              if (!result.success) {
-
-                logger.error('Create subscription failed', {
-                  input: req.body,
-                  error: result.error,
-                });
-
-                return res.status(500).json(result);
-
-              }
-
-              logger.info('Subscription created successfully', {
-                subscription: result.data,
-              });
-
-
-
-              await pusher.trigger(
-                `private-user-${userId}`,
-                'subscription-payment',
-                {
-                  message: 'subscription payment successful',
-                  userId,
-                  subscriptionId
-                }
-              );
-
-              return res.status(200).json(result);
-
-
-          } catch (err) {
-
-            logger.error('Unexpected error during subscription creation', {
-              input: req.body,
-              err,
-            });
-
-            return res.status(500).json({
-              success: false,
-              error: 'Unexpected server error',
-            });
-
-          }
-
-      }
-
+        break;
 
       case "subscription_cancelled":
 
-          await modifySubscription(subscriptionId,'cancelled');
+          await modifySubscription({ subscriptionId, status: 'cancelled' });
+          break;
 
       case "subscription_expired":
 
-          await modifySubscription(subscriptionId,'expired');
+          await modifySubscription({subscriptionId, status: 'expired'});
+          break;
 
       case "subscription_payment_failed":
 
-          await modifySubscription(subscriptionId,'expired');
+          await modifySubscription({subscriptionId, status: 'expired'});
+          break;
       
-      case "subscription_cancelled":
-
-          await modifySubscription(subscriptionId,'cancelled');
-       
       default:
-        console.log("Unknown subscription event."); 
+        break; 
     }
 
     
@@ -419,6 +458,124 @@ app.post('/pusher/auth', (req, res) => {
   res.send(auth);
 
 });
+
+
+app.post('/api/create-checkout-link', auth, async (req, res) => {
+
+    const { email, name } = req.body;
+
+    const uid = req.user.uid;
+
+    try {
+
+      const result = await createCheckoutLink({email,name,uid});
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: result.error,
+        });
+      }
+
+      return res.json({
+        success: true,
+        url:
+          result.data.data.attributes.url,
+      });
+
+    } catch (error) {
+      logger.error(
+        '[API] Unexpected error',
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  }
+);
+
+
+app.get('/api/get-subscription-on-api', auth, async (req, res) => {
+
+    const { subId } = req.query;
+
+    try {
+
+      const result = await getSubscriptionOnAPI({subId});
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: result.error,
+        });
+      }
+
+      const attributes = result.data.data.attributes;
+
+      return res.json({
+        success: true,
+        data: {
+          sub_id: result.data.data.id,
+          product_name: attributes.product_name,
+          card_brand: attributes.card_brand,
+          card_last_four: attributes.card_last_four,
+          update_payment_url: attributes.urls.update_payment_method,
+          status: attributes.status
+        }
+      });
+
+    } catch (error) {
+      logger.error(
+        '[API] Unexpected error',
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  }
+);
+
+
+app.get('/api/subscriptions', auth, async (req, res) => {
+
+    const userId = req.user.uid;
+        
+    const result = await checkSubscription({userId});
+
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+
+    return res.json(result);
+
+  }
+);
+
+app.delete('/api/cancel-subscriptions', auth, async (req, res) => {
+
+    const subId = req.body.subId;
+
+    const result = await cancelSubscription({subId});
+
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+
+    return res.json({
+      success: true,
+      message:
+        'Subscription cancelled successfully',
+      data: result.data,
+      
+    });
+  }
+);
 
 app.listen(PORT, () => {
 

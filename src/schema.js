@@ -1,4 +1,4 @@
-import { pgTable,pgEnum, text, timestamp, jsonb, serial,varchar,integer } from 'drizzle-orm/pg-core';
+import { pgTable,pgEnum, text, timestamp, jsonb, serial,varchar,integer,primaryKey } from 'drizzle-orm/pg-core';
 
 export const chats = pgTable('chats', {
 
@@ -29,3 +29,19 @@ export const subscriptions = pgTable('subscriptions', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 
 });
+
+export const messageUsage = pgTable("message_usage", {
+
+    userId: text("user_id").notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(),
+    messageCount: integer("message_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.year, table.month],
+    }),
+  ]
+)
