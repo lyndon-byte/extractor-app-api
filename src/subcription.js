@@ -357,7 +357,7 @@ export async function canSendMessage({ userId }) {
     )
     .limit(1);
 
-  const count = usage[0].messageCount;
+  const count = usage[0]?.messageCount ?? 0;
 
   return count < MONTHLY_LIMIT;
 
