@@ -163,7 +163,7 @@ async function checkSubscriptionMiddleware(req, res, next){
       return res.status(403).json({
         success: false,
         error_code: 'FREE_TIER_LIMIT_REACHED',
-        message: 'You have reached the 12 email limit for this month. Upgrade to a plan to continue.',
+        message: 'You have reached the 9 email limit for this month. Upgrade to a plan to continue.',
       });
     }
 
